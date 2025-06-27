@@ -1,9 +1,9 @@
-export class ResourceHandlers {
-  /**
-   * Get content for gcp-tools-cdktf library resource
-   */
-  static async getGcpToolsLibraryContent(): Promise<string> {
-    return JSON.stringify({
+/**
+ * Get content for gcp-tools-cdktf library resource
+ */
+export async function getGcpToolsLibraryContent(): Promise<string> {
+  return JSON.stringify(
+    {
       name: 'gcp-tools-cdktf',
       version: '1.0.0',
       description: 'Google Cloud Platform tools for CDKTF',
@@ -38,14 +38,18 @@ export class ResourceHandlers {
         security: 'Workload Identity, IAM best practices',
         deployment: 'GitHub Actions CI/CD',
       },
-    }, null, 2);
-  }
+    },
+    null,
+    2,
+  )
+}
 
-  /**
-   * Get content for example application resource
-   */
-  static async getExampleAppContent(): Promise<string> {
-    return JSON.stringify({
+/**
+ * Get content for example app resource
+ */
+export async function getExampleAppContent(): Promise<string> {
+  return JSON.stringify(
+    {
       name: 'liplan-example',
       description: 'Complete example application using gcp-tools-cdktf',
       structure: {
@@ -78,18 +82,19 @@ export class ResourceHandlers {
         data: 'Database services (Firestore)',
         app: 'Application services (Cloud Run)',
       },
-      workflows: [
-        'deploy-infrastructure.yml',
-        'deploy-services.yml',
-      ],
-    }, null, 2);
-  }
+      workflows: ['deploy-infrastructure.yml', 'deploy-services.yml'],
+    },
+    null,
+    2,
+  )
+}
 
-  /**
-   * Get content for GCP projects resource
-   */
-  static async getGcpProjectsContent(): Promise<string> {
-    return JSON.stringify({
+/**
+ * Get content for GCP projects resource
+ */
+export async function getGcpProjectsContent(): Promise<string> {
+  return JSON.stringify(
+    {
       projects: {
         host: {
           purpose: 'Shared networking infrastructure',
@@ -116,22 +121,24 @@ export class ResourceHandlers {
         local: 'Local development integration',
       },
       regions: ['us-central1', 'europe-west1'],
-    }, null, 2);
-  }
+    },
+    null,
+    2,
+  )
+}
 
-  /**
-   * Get content for any resource by URI
-   */
-  static async getResourceContent(uri: string): Promise<string> {
-    switch (uri) {
-      case 'gcp-tools-cdktf:library':
-        return await this.getGcpToolsLibraryContent();
-      case 'gcp-tools-cdktf:example-app':
-        return await this.getExampleAppContent();
-      case 'gcp:projects':
-        return await this.getGcpProjectsContent();
-      default:
-        throw new Error(`Unknown resource: ${uri}`);
-    }
+/**
+ * Get content for any resource by URI
+ */
+export async function getResourceContent(uri: string): Promise<string> {
+  switch (uri) {
+    case 'gcp-tools-cdktf:library':
+      return await getGcpToolsLibraryContent()
+    case 'gcp-tools-cdktf:example-app':
+      return await getExampleAppContent()
+    case 'gcp:projects':
+      return await getGcpProjectsContent()
+    default:
+      throw new Error(`Unknown resource: ${uri}`)
   }
 }

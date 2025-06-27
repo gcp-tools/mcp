@@ -1,10 +1,11 @@
-import type { Resource } from '../types.mjs';
+import type { Resource } from '../types.mjs'
 
 export const resources: Resource[] = [
   {
     uri: 'gcp-tools-cdktf:library',
     name: 'GCP Tools CDKTF Library',
-    description: 'Access to gcp-tools-cdktf library structure and documentation',
+    description:
+      'Access to gcp-tools-cdktf library structure and documentation',
     mimeType: 'application/json',
   },
   {
@@ -19,9 +20,9 @@ export const resources: Resource[] = [
     description: 'GCP project information and configuration',
     mimeType: 'application/json',
   },
-];
+]
 
-export const resourceRegistry = new Map<string, Resource>();
-resources.forEach(resource => {
-  resourceRegistry.set(resource.uri, resource);
-});
+export const resourceRegistry = new Map<string, Resource>()
+for (const resource of resources) {
+  resourceRegistry.set(resource.uri, resource)
+}
