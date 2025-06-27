@@ -139,9 +139,10 @@ export const tools: Tool[] = [
           type: 'string',
           description: 'Your GCP billing account',
         },
-        region: {
+        regions: {
           type: 'string',
-          description: 'Default region (e.g., "us-central1")',
+          description: 'Comma-separated list of regions (e.g., "us-central1,us-west1")',
+          minLength: 1,
         },
         githubIdentity: {
           type: 'string',
@@ -175,14 +176,20 @@ export const tools: Tool[] = [
           description:
             'Include optional dependencies (python, rust) in prerequisites check',
         },
+        ownerEmails: {
+          type: 'string',
+          description: 'Comma-separated list of owner email addresses',
+          minLength: 1,
+        },
       },
       required: [
         'projectName',
         'orgId',
         'billingAccount',
-        'region',
+        'regions',
         'githubIdentity',
         'developerIdentity',
+        'ownerEmails',
       ],
     },
   },

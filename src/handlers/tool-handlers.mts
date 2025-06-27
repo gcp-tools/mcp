@@ -1,6 +1,4 @@
 import { exec } from 'node:child_process'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import type {
   CompleteProjectSetupResult,
@@ -11,75 +9,31 @@ import type {
   SetupFoundationProjectResult,
   SetupGitHubSecretsResult,
 } from '../types.mjs'
+import { runFoundationProject, type FoundationSetupArgs, type FoundationSetupResult } from '../lib/setup_foundation_project.js'
 
 const execAsync = promisify(exec)
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-export async function setupFoundationProject(
-  args: SetupFoundationProjectArgs,
+export async function runFoundationProjectHandler(
+  args: SetupFoundationProjectArgs & { ownerEmails: string },
 ): Promise<SetupFoundationProjectResult> {
   try {
-    // Set environment variables for the script
-    process.env.GCP_TOOLS_PROJECT_NAME = args.projectName
-    process.env.GCP_TOOLS_ORG_ID = args.orgId
-    process.env.GCP_TOOLS_BILLING_ACCOUNT = args.billingAccount
-    process.env.GCP_DEFAULT_REGION = args.region
-    process.env.GCP_TOOLS_GITHUB_IDENTITY_SPECIFIER = args.githubIdentity
-    process.env.GCP_TOOLS_DEVELOPER_IDENTITY_SPECIFIER = args.developerIdentity
-
-    // Path to the setup script (assuming it's in the gcp-tools-cdktf directory)
-    const scriptPath = path.resolve(
-      __dirname,
-      '../../../gcp-tools-cdktf/scripts/setup_foundation_project.sh',
-    )
-
-    console.error(`Executing script: ${scriptPath}`)
-    console.error(`Project Name: ${args.projectName}`)
-    console.error(`Organization ID: ${args.orgId}`)
-    console.error(`Region: ${args.region}`)
-    console.error('This may take several minutes to complete...')
-
-    const { stdout, stderr } = await execAsync(`bash ${scriptPath}`, {
-      env: process.env,
-      maxBuffer: 1024 * 1024 * 10, // 10MB buffer
-      timeout: 300000, // 5 minutes timeout
-    })
-
-    if (stderr) {
-      console.error('Script stderr:', stderr)
+    const foundationArgs: FoundationSetupArgs = {
+      projectName: args.projectName,
+      orgId: args.orgId,
+      billingAccount: args.billingAccount,
+      regions: args.regions,
+      githubIdentity: args.githubIdentity,
+      developerIdentity: args.developerIdentity,
+      ownerEmails: args.ownerEmails,
     }
-
-    console.error('Script stdout:', stdout)
-
-    // Parse output to extract project information
-    const projectIdMatch = stdout.match(/Project ID: ([^\n]+)/)
-    const serviceAccountMatch = stdout.match(/Service Account: ([^\n]+)/)
-    const workloadIdentityPoolMatch = stdout.match(
-      /Workload Identity Pool: ([^\n]+)/,
-    )
-    const projectNumberMatch = stdout.match(/Project Number: ([^\n]+)/)
-    const devWipMatch = stdout.match(/Dev Workload Identity Provider: ([^\n]+)/)
-    const testWipMatch = stdout.match(
-      /Test Workload Identity Provider: ([^\n]+)/,
-    )
-    const sbxWipMatch = stdout.match(/Sbx Workload Identity Provider: ([^\n]+)/)
-    const prodWipMatch = stdout.match(
-      /Prod Workload Identity Provider: ([^\n]+)/,
-    )
-
+    const result: FoundationSetupResult = await runFoundationProject(foundationArgs)
+    // Return a result matching SetupFoundationProjectResult
     return {
-      projectId: projectIdMatch?.[1] || '',
-      serviceAccount: serviceAccountMatch?.[1] || '',
-      workloadIdentityPool: workloadIdentityPoolMatch?.[1] || '',
-      projectNumber: projectNumberMatch?.[1] || '',
-      workloadIdentityProviders: {
-        dev: devWipMatch?.[1] || '',
-        test: testWipMatch?.[1] || '',
-        sbx: sbxWipMatch?.[1] || '',
-        prod: prodWipMatch?.[1] || '',
-      },
+      projectId: result.projectId,
+      serviceAccount: result.serviceAccount,
+      workloadIdentityPool: result.workloadIdentityProviders?.dev || '',
+      projectNumber: result.projectNumber,
+      workloadIdentityProviders: result.workloadIdentityProviders,
       status: 'success',
       message: 'Foundation project setup completed successfully',
     }
@@ -218,12 +172,12 @@ export async function createGitHubRepo(args: {
 
     console.error(`Creating GitHub repository: ${args.repoName}`)
     const { stdout, stderr } = await execAsync(cmd, {
-      env: process.env,
+        env: process.env,
       maxBuffer: 1024 * 1024, // 1MB buffer
       timeout: 60000, // 1 minute timeout
     })
 
-    if (stderr) {
+      if (stderr) {
       console.error('GitHub CLI stderr:', stderr)
     }
 
@@ -264,24 +218,46 @@ export async function createGitHubRepo(args: {
   }
 }
 
-export async function setupGitHubSecrets(args: {
-  repoName: string
-  projectId: string
-  serviceAccount: string
-  workloadIdentityPool: string
-  projectNumber?: string
-  workloadIdentityProviders?: {
-    dev?: string
-    test?: string
-    sbx?: string
-    prod?: string
+export async function setupGitHubSecrets(
+  input: FoundationSetupResult | {
+    repoName: string
+    projectId: string
+    serviceAccount: string
+    workloadIdentityPool: string
+    projectNumber?: string
+    workloadIdentityProviders?: {
+      dev?: string
+      test?: string
+      sbx?: string
+      prod?: string
+    }
+    region: string
+    orgId?: string
+    billingAccount?: string
+    ownerEmails?: string
+    regions?: string
   }
-  region: string
-  orgId?: string
-  billingAccount?: string
-  ownerEmails?: string
-  regions?: string
-}): Promise<SetupGitHubSecretsResult> {
+): Promise<SetupGitHubSecretsResult> {
+  // Type guard: is this a FoundationSetupResult?
+  const isFoundationResult = (obj: any): obj is FoundationSetupResult =>
+    obj && typeof obj === 'object' && 'projectId' in obj && 'serviceAccount' in obj && 'workloadIdentityProviders' in obj
+
+  const args = isFoundationResult(input)
+    ? {
+        repoName: input.projectId, // or use a different field if needed
+        projectId: input.projectId,
+        serviceAccount: input.serviceAccount,
+        workloadIdentityPool: input.workloadIdentityProviders?.dev || '',
+        projectNumber: input.projectNumber,
+        workloadIdentityProviders: input.workloadIdentityProviders,
+        region: input.region,
+        orgId: input.orgId,
+        billingAccount: input.billingAccount,
+        ownerEmails: input.ownerEmails,
+        regions: input.region, // or join regions if available
+      }
+    : input
+
   try {
     // Check if GitHub CLI is available and authenticated
     try {
@@ -569,9 +545,10 @@ export async function completeProjectSetup(args: {
   projectName: string
   orgId: string
   billingAccount: string
-  region: string
+  regions: string
   githubIdentity: string
   developerIdentity: string
+  ownerEmails: string
   repoDescription?: string
   isPrivate?: boolean
   addLicense?: string
@@ -698,13 +675,14 @@ export async function completeProjectSetup(args: {
 
     // Step 3: Setup GCP foundation project
     console.error('Step 3: Setting up GCP foundation project...')
-    const foundationResult = await setupFoundationProject({
+    const foundationResult = await runFoundationProjectHandler({
       projectName: args.projectName,
       orgId: args.orgId,
       billingAccount: args.billingAccount,
-      region: args.region,
+      regions: args.regions,
       githubIdentity: args.githubIdentity,
       developerIdentity: args.developerIdentity,
+      ownerEmails: args.ownerEmails,
     })
 
     if (foundationResult.status === 'failed') {
@@ -728,17 +706,13 @@ export async function completeProjectSetup(args: {
     // Step 4: Setup GitHub secrets
     console.error('Step 4: Setting up GitHub secrets...')
     const secretsResult = (await setupGitHubSecrets({
+      ...foundationResult,
       repoName: args.projectName,
-      projectId: foundationResult.projectId,
-      serviceAccount: foundationResult.serviceAccount,
-      workloadIdentityPool: foundationResult.workloadIdentityPool,
-      projectNumber: foundationResult.projectNumber,
-      workloadIdentityProviders: foundationResult.workloadIdentityProviders,
-      region: args.region,
+      region: args.regions,
       orgId: args.orgId,
       billingAccount: args.billingAccount,
-      ownerEmails: args.developerIdentity,
-      regions: args.githubIdentity,
+      ownerEmails: args.ownerEmails,
+      regions: args.regions,
     })) as SetupGitHubSecretsResult
 
     if (secretsResult.status === 'failed') {

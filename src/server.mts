@@ -11,7 +11,7 @@ import {
   completeProjectSetup,
   createGitHubRepo,
   installPrerequisites,
-  setupFoundationProject,
+  runFoundationProjectHandler,
   setupGitHubSecrets,
 } from './handlers/tool-handlers.mjs'
 import { resourceRegistry } from './resources/index.mjs'
@@ -21,7 +21,6 @@ import type {
   CreateGitHubRepoResult,
   InstallPrerequisitesResult,
   MCPServerConfig,
-  SetupFoundationProjectResult,
   SetupGitHubSecretsResult,
 } from './types.mjs'
 
@@ -109,11 +108,10 @@ export class GcpToolsMCPServer {
     | CreateGitHubRepoResult
     | SetupGitHubSecretsResult
     | CompleteProjectSetupResult
-    | SetupFoundationProjectResult
   > {
     switch (name) {
       case 'setup_foundation_project':
-        return await setupFoundationProject(
+        return await runFoundationProjectHandler(
           args as {
             projectName: string
             orgId: string

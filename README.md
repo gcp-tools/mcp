@@ -7,25 +7,35 @@ The GCP Tools MCP server automates Google Cloud Platform infrastructure setup an
 - Create and configure a new GitHub repository
 - Set up a GCP foundation project with service accounts, IAM, and Workload Identity
 - Automatically create all required GitHub secrets and variables for CI/CD, including environment-specific values for dev, test, sbx, and prod
+- Supports multi-region deployments and explicit owner email configuration
 
 ## 🚀 One-Command Complete Setup Example
 
 If you want to set up everything for a new GCP project and GitHub repository in one go, just ask in Cursor:
 
-> "Set up everything I need for a new GCP project called 'my-app'"
+> "Set up everything I need for a new GCP project called 'my-app' in us-central1,us-west1 with owners alice@example.com,bob@example.com"
 
-**Important:** Before running the complete setup, you must:
-- Install all prerequisites (the MCP server will help with this)
+**Required arguments:**
+- `projectName` (string)
+- `orgId` (string)
+- `billingAccount` (string)
+- `regions` (comma-separated string, e.g. `"us-central1,us-west1"`)
+- `githubIdentity` (string)
+- `developerIdentity` (string)
+- `ownerEmails` (comma-separated string, e.g. `"alice@example.com,bob@example.com"`)
+
+**Optional:**
+- `repoDescription`, `isPrivate`, `addLicense`, `topics`, `includeOptionalDeps`
+
+**Before running the complete setup:**
 - Authenticate with GitHub CLI: `gh auth login`
-- Authenticate with Google Cloud SDK: `gcloud auth login`
+- Authenticate with Google Cloud SDK: `gcloud auth login` and `gcloud auth application-default login`
 
-If you have not authenticated with both, the setup will stop and prompt you to do so.
-
-The MCP server will:
+**The MCP server will:**
 1. Check and install prerequisites (terraform, cdktf, gcloud, gh)
 2. Create a new GitHub repository for your code
-3. Create a new GCP foundation project
-4. Configure all GitHub secrets and variables, including per-environment values
+3. Create a new GCP foundation project (using the first region as default, but supporting all regions)
+4. Configure all GitHub secrets and variables, including per-environment values and owner emails
 5. Return all the details you need to get started
 
 **Example response:**
@@ -52,73 +62,102 @@ The MCP server will:
 
 ---
 
-## Or Do It Step by Step
+## Step-by-Step Usage
 
-If you prefer, you can perform each part of the setup individually. Just ask Cursor for each step:
+You can perform each part of the setup individually. Just ask Cursor for each step:
 
 1. **Check prerequisites**
    > "Check if I have all the required tools installed for GCP development"
-   - Checks for terraform, cdktf, gcloud, etc.
-
 2. **Install missing dependencies**
    > "Install any missing dependencies for GCP development"
-   - Installs any missing tools automatically.
-
 3. **Authenticate with GitHub CLI**
-   > Run in your terminal: `gh auth login`
-   - You must be logged in to GitHub CLI before creating repos or setting secrets.
-
+   > Run: `gh auth login`
 4. **Authenticate with Google Cloud SDK**
-   > Run in your terminal: `gcloud auth login`
-   - You must be logged in to gcloud before creating GCP projects or resources.
-
+   > Run: `gcloud auth login` and `gcloud auth application-default login`
 5. **Create a GitHub repository**
    > "Create a new GitHub repository for my GCP project"
-   - Creates a new private repo, README, .gitignore, etc.
-
 6. **Set up a GCP foundation project**
-   > "Create a new GCP foundation project for my app called 'my-app'"
-   - Creates the GCP project, service accounts, IAM, Workload Identity, etc.
-
+   > "Create a new GCP foundation project for my app called 'my-app' in us-central1,us-west1 with owners alice@example.com,bob@example.com"
 7. **Configure GitHub secrets and variables**
    > "Configure all required GitHub secrets and variables for my repo"
-   - Sets up all secrets/variables for CI/CD and environment separation.
 
 You can run any of these steps independently, in any order, and repeat as needed.
 
 ---
 
-### Troubleshooting
+## Tool Reference
 
-If the complete setup fails with a message about authentication, make sure you have run both `gh auth login` and `gcloud auth login` in your terminal, then re-run the setup.
+### `install_prerequisites`
+Checks for and optionally installs required dependencies.
+- **Parameters:**
+  - `checkOnly` (boolean): If true, only check (don't install)
+  - `includeOptional` (boolean): If true, include python and rust
 
-## Features
+### `create_github_repo`
+Creates a new GitHub repository with proper configuration.
+- **Parameters:**
+  - `repoName` (string): Name for the repository
+  - `description` (string): Repository description
+  - `isPrivate` (boolean): Whether repository should be private (default: true)
+  - `addReadme` (boolean): Add README file (default: true)
+  - `addGitignore` (boolean): Add .gitignore for Node.js/TypeScript (default: true)
+  - `addLicense` (string): License type (e.g., "MIT", "Apache-2.0", "none")
+  - `topics` (array): Repository topics/tags
 
-- **Self-contained**: No need for sibling repos
-- **Easy setup**: Just clone and configure
-- **LLM-friendly**: Works great with Cursor and other AI tools
-- **Production-ready**: Creates real GCP infrastructure
-- **Foundation Project Setup**: Create new GCP foundation projects with all necessary infrastructure
-- **Resource Access**: Access to gcp-tools-cdktf library documentation and examples
-- **GCP Integration**: Direct integration with GCP services and APIs
-- **Environment-Specific Secrets and Variables**: Automatically creates all required GitHub secrets and variables for each environment (`dev`, `test`, `sbx`, `prod`), as well as global secrets and variables.
-- **Security**: All sensitive values are stored as GitHub secrets (encrypted). Environment-specific secrets ensure least-privilege and separation between environments. Workload Identity is used for secure, keyless authentication from GitHub Actions to GCP.
+### `setup_foundation_project`
+Creates a new GCP foundation project with all infrastructure.
+- **Parameters:**
+  - `projectName` (string)
+  - `orgId` (string)
+  - `billingAccount` (string)
+  - `regions` (comma-separated string, min 1)
+  - `githubIdentity` (string)
+  - `developerIdentity` (string)
+  - `ownerEmails` (comma-separated string)
+
+### `setup_github_secrets`
+Creates GitHub repository secrets and environment variables based on GCP foundation project setup.
+- **Parameters:**
+  - `repoName` (string)
+  - `projectId` (string)
+  - `serviceAccount` (string)
+  - `workloadIdentityPool` (string)
+  - `region` (string)
+  - `orgId` (string, optional)
+  - `billingAccount` (string, optional)
+  - `ownerEmails` (comma-separated string)
+  - `regions` (comma-separated string)
+
+### `complete_project_setup`
+Complete end-to-end setup: install prerequisites, create GitHub repo, setup GCP foundation project, and configure GitHub secrets.
+- **Parameters:**
+  - `projectName` (string)
+  - `orgId` (string)
+  - `billingAccount` (string)
+  - `regions` (comma-separated string, min 1)
+  - `githubIdentity` (string)
+  - `developerIdentity` (string)
+  - `ownerEmails` (comma-separated string)
+  - `repoDescription` (string, optional)
+  - `isPrivate` (boolean, optional)
+  - `addLicense` (string, optional)
+  - `topics` (array, optional)
+  - `includeOptionalDeps` (boolean, optional)
+
+---
 
 ## Prerequisites
 
-Before getting started, ensure you have the following tools installed on your system. It is recommended to use a version manager like `nvm` for Node.js and `rustup` for Rust to easily switch between versions.
-
-| Tool | Recommended Version | Installation |
-| :--- | :--- | :--- |
-| **Node.js** | `v22.x` | `nvm install 22` or [official installer](https://nodejs.org/) |
-| **Terraform** | `~> 1.9.0` | [Official installer](https://www.terraform.io/downloads.html) |
-| **CDKTF CLI** | `~> 0.21.0` | `npm i -g cdktf-cli@0.21.0` |
-| **Rust** | `latest stable` | `rustup` (from [rust-lang.org](https://www.rust-lang.org/tools/install)) |
-| **Google Cloud SDK** | `latest` | [Official installer](https://cloud.google.com/sdk/docs/install) |
-| **Python** | `3.9+` | [Official installer](https://www.python.org/downloads/) |
-
+- Node.js (v22.x recommended)
+- Terraform (~> 1.9.0)
+- CDKTF CLI (~> 0.21.0)
+- Rust (latest stable)
+- Google Cloud SDK (latest)
+- Python (3.9+)
 - GCP account with appropriate permissions
 - GitHub account (for Workload Identity)
+
+---
 
 ## Quick Start
 
@@ -128,6 +167,8 @@ cd gcp-tools-mcp
 npm install
 npm run build
 ```
+
+---
 
 ## Configuration
 
@@ -147,146 +188,9 @@ Add this to your Cursor MCP configuration (`~/.cursor/mcp.json`):
 
 Restart Cursor to pick up the new MCP server configuration.
 
-## Usage Examples
+---
 
-### Example 1: Check Your Prerequisites
-
-**You ask in Cursor:**
-> "Check if I have all the required tools installed for GCP development"
-
-**The MCP server will:**
-- Check for terraform, cdktf, cdktf-cli, gcloud
-- Tell you what's missing
-- Optionally install missing tools
-
-**Example response:**
-```json
-{
-  "summary": [
-    {"name": "terraform", "present": true},
-    {"name": "cdktf", "present": false},
-    {"name": "gcloud", "present": true}
-  ],
-  "message": "Dependency check complete."
-}
-```
-
-### Example 2: Install Missing Dependencies
-
-**You ask in Cursor:**
-> "Install any missing dependencies for GCP development"
-
-**The MCP server will:**
-- Check what's missing
-- Install missing tools automatically
-- Report success/failure for each
-
-### Example 3: Set Up a New GCP Project
-
-**You ask in Cursor:**
-> "Create a new GCP foundation project for my app called 'my-app'"
-
-**The MCP server will:**
-- Create a new GCP project with ID like `my-app-fdn-1234567890`
-- Set up service accounts and IAM permissions
-- Configure Workload Identity for GitHub Actions
-- Return project details
-
-**Example response:**
-```json
-{
-  "projectId": "my-app-fdn-1234567890",
-  "serviceAccount": "my-app-sa@my-app-fdn-1234567890.iam.gserviceaccount.com",
-  "workloadIdentityPool": "projects/123456789/locations/global/workloadIdentityPools/my-app-pool",
-  "status": "success",
-  "message": "Foundation project setup completed successfully"
-}
-```
-
-### Example 4: Create a GitHub Repository
-
-**You ask in Cursor:**
-> "Create a new GitHub repository for my GCP project"
-
-**The MCP server will:**
-- Check if GitHub CLI is installed and authenticated
-- Create a new private repository with README and .gitignore
-- Add relevant topics/tags
-- Return the repository URL
-
-**Example response:**
-```json
-{
-  "status": "success",
-  "message": "GitHub repository created successfully",
-  "repoName": "my-app",
-  "repoUrl": "https://github.com/yourusername/my-app",
-  "isPrivate": true,
-  "topics": []
-}
-```
-
-## Available Tools
-
-### `install_prerequisites`
-Checks for and optionally installs required dependencies.
-
-**Parameters:**
-- `checkOnly` (boolean): If true, only check (don't install)
-- `includeOptional` (boolean): If true, include python and rust
-
-### `setup_foundation_project`
-Creates a new GCP foundation project with all infrastructure.
-
-**Parameters:**
-- `projectName` (string): Name for your project
-- `orgId` (string): Your GCP organization ID
-- `billingAccount` (string): Your GCP billing account
-- `region` (string): Default region (e.g., "us-central1")
-- `githubIdentity` (string): Your GitHub org/username
-- `developerIdentity` (string): Your developer domain
-
-### `create_github_repo`
-Creates a new GitHub repository with proper configuration.
-
-**Parameters:**
-- `repoName` (string): Name for the repository
-- `description` (string): Repository description
-- `isPrivate` (boolean): Whether repository should be private (default: true)
-- `addReadme` (boolean): Add README file (default: true)
-- `addGitignore` (boolean): Add .gitignore for Node.js/TypeScript (default: true)
-- `addLicense` (string): License type (e.g., "MIT", "Apache-2.0", "none")
-- `topics` (array): Repository topics/tags
-
-### `setup_github_secrets`
-Creates GitHub repository secrets and environment variables based on GCP foundation project setup.
-
-**Parameters:**
-- `repoName` (string): Name of the GitHub repository
-- `projectId` (string): GCP Project ID from foundation setup
-- `serviceAccount` (string): GCP Service Account email from foundation setup
-- `workloadIdentityPool` (string): Workload Identity Pool from foundation setup
-- `region` (string): GCP region (e.g., us-central1)
-- `orgId` (string): GCP Organization ID (optional)
-- `billingAccount` (string): GCP Billing Account (optional)
-
-### `complete_project_setup`
-Complete end-to-end setup: install prerequisites, create GitHub repo, setup GCP foundation project, and configure GitHub secrets.
-
-**Parameters:**
-- `projectName` (string): Name for your project (used for both GCP project and GitHub repo)
-- `orgId` (string): Your GCP organization ID
-- `billingAccount` (string): Your GCP billing account
-- `region` (string): Default region (e.g., "us-central1")
-- `githubIdentity` (string): Your GitHub org/username
-- `developerIdentity` (string): Your developer domain
-- `repoDescription` (string): GitHub repository description (optional)
-- `isPrivate` (boolean): Whether GitHub repository should be private (default: true)
-- `addLicense` (string): License type for GitHub repo (optional)
-- `topics` (array): GitHub repository topics/tags (optional)
-- `includeOptionalDeps` (boolean): Include optional dependencies (python, rust) (optional)
-
-## Development
+## Development & Testing
 
 ```bash
 # Build the server
@@ -295,32 +199,22 @@ npm run build
 # Test the server
 node test-mcp.js
 
-# Run in development
-npm run dev
-```
-
-## Testing
-
-```bash
-# Test basic functionality
-node test-mcp.js
-
 # Test with real GCP setup (creates actual projects)
 node test-real-setup.js
 ```
 
-## Architecture
+---
 
-The MCP server is built with TypeScript and follows the Model Context Protocol specification:
+## Architecture
 
 - **Server**: Main MCP server implementation
 - **Tools**: Tool definitions and registries
 - **Resources**: Resource definitions and handlers
 - **Handlers**: Implementation of tool and resource handlers
+- **Lib**: Shared logic for foundation setup and other utilities
+
+---
 
 ## License
 
 MIT
-
-Once this is up and running we will generate an example project from it - with a single example
-of all the different constructs in gcp-tools-cdktf
