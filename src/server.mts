@@ -10,7 +10,7 @@ import { toolRegistry } from './tools/index.mjs';
 import { resourceRegistry } from './resources/index.mjs';
 import { ToolHandlers } from './handlers/tool-handlers.mjs';
 import { ResourceHandlers } from './handlers/resource-handlers.mjs';
-import type { MCPServerConfig } from './types.mjs';
+import type { MCPServerConfig, InstallPrerequisitesResult, CreateGitHubRepoResult, SetupGitHubSecretsResult, CompleteProjectSetupResult, SetupFoundationProjectResult } from './types.mjs';
 
 export class GcpToolsMCPServer {
   private server: Server;
@@ -78,18 +78,60 @@ export class GcpToolsMCPServer {
     });
   }
 
-  private async executeTool(name: string, args: any): Promise<any> {
+  private async executeTool(name: string, args: unknown): Promise<InstallPrerequisitesResult | CreateGitHubRepoResult | SetupGitHubSecretsResult | CompleteProjectSetupResult | SetupFoundationProjectResult> {
     switch (name) {
       case 'setup_foundation_project':
-        return await ToolHandlers.setupFoundationProject(args);
+        return await ToolHandlers.setupFoundationProject(args as {
+          projectName: string;
+          orgId: string;
+          billingAccount: string;
+          region: string;
+          githubIdentity: string;
+          developerIdentity: string;
+        });
       case 'install_prerequisites':
-        return await ToolHandlers.installPrerequisites(args);
+        return await ToolHandlers.installPrerequisites(args as {
+          checkOnly?: boolean;
+          includeOptional?: boolean;
+        });
       case 'create_github_repo':
-        return await ToolHandlers.createGitHubRepo(args);
+        return await ToolHandlers.createGitHubRepo(args as {
+          repoName: string;
+          description?: string;
+          isPrivate?: boolean;
+          addReadme?: boolean;
+          addGitignore?: boolean;
+          addLicense?: string;
+          topics?: string[];
+        });
       case 'setup_github_secrets':
-        return await ToolHandlers.setupGitHubSecrets(args);
+        return await ToolHandlers.setupGitHubSecrets(args as {
+          repoName: string;
+          projectId: string;
+          serviceAccount: string;
+          workloadIdentityPool: string;
+          projectNumber?: string;
+          workloadIdentityProviders?: { dev?: string; test?: string; sbx?: string; prod?: string };
+          region: string;
+          orgId?: string;
+          billingAccount?: string;
+          ownerEmails?: string;
+          regions?: string;
+        });
       case 'complete_project_setup':
-        return await ToolHandlers.completeProjectSetup(args);
+        return await ToolHandlers.completeProjectSetup(args as {
+          projectName: string;
+          orgId: string;
+          billingAccount: string;
+          region: string;
+          githubIdentity: string;
+          developerIdentity: string;
+          repoDescription?: string;
+          isPrivate?: boolean;
+          addLicense?: string;
+          topics?: string[];
+          includeOptionalDeps?: boolean;
+        });
       default:
         throw new Error(`Unknown tool: ${name}`);
     }

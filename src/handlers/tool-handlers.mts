@@ -5,6 +5,11 @@ import { fileURLToPath } from 'url';
 import type {
   SetupFoundationProjectArgs,
   SetupFoundationProjectResult,
+  DependencyCheckResult,
+  CreateGitHubRepoResult,
+  SetupGitHubSecretsResult,
+  InstallPrerequisitesResult,
+  CompleteProjectSetupResult,
 } from '../types.mjs';
 
 const execAsync = promisify(exec);
@@ -93,7 +98,7 @@ export class ToolHandlers {
   /**
    * Check for and optionally install required and optional dependencies
    */
-  static async installPrerequisites(args: { checkOnly?: boolean, includeOptional?: boolean }): Promise<any> {
+  static async installPrerequisites(args: { checkOnly?: boolean, includeOptional?: boolean }): Promise<InstallPrerequisitesResult> {
     const required = [
       { name: 'terraform', check: 'terraform --version', install: 'brew install terraform' },
       { name: 'cdktf', check: 'cdktf --version', install: 'npm install -g cdktf-cli' },
@@ -142,7 +147,7 @@ export class ToolHandlers {
     addGitignore?: boolean;
     addLicense?: string;
     topics?: string[];
-  }): Promise<any> {
+  }): Promise<CreateGitHubRepoResult> {
     try {
       // Check if GitHub CLI is available
       try {
@@ -241,7 +246,7 @@ export class ToolHandlers {
     billingAccount?: string;
     ownerEmails?: string;
     regions?: string;
-  }): Promise<any> {
+  }): Promise<SetupGitHubSecretsResult> {
     try {
       // Check if GitHub CLI is available and authenticated
       try {
@@ -250,7 +255,10 @@ export class ToolHandlers {
         return {
           status: 'failed',
           message: 'Not authenticated with GitHub. Please run: gh auth login',
-          error: 'GitHub authentication required'
+          error: 'GitHub authentication required',
+          repoName: args.repoName,
+          results: [],
+          summary: { secretsCreated: 0, variablesCreated: 0, workflowsCreated: 0, totalItems: 0 },
         };
       }
 
@@ -417,7 +425,10 @@ jobs:
       return {
         status: 'failed',
         message: `GitHub secrets setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        repoName: args.repoName,
+        results: [],
+        summary: { secretsCreated: 0, variablesCreated: 0, workflowsCreated: 0, totalItems: 0 },
       };
     }
   }
@@ -437,13 +448,8 @@ jobs:
     addLicense?: string;
     topics?: string[];
     includeOptionalDeps?: boolean;
-  }): Promise<any> {
-    const results: {
-      step1: { status: string; message: string; details?: any };
-      step2: { status: string; message: string; details?: any };
-      step3: { status: string; message: string; details?: any };
-      step4: { status: string; message: string; details?: any };
-    } = {
+  }): Promise<CompleteProjectSetupResult> {
+    const results: CompleteProjectSetupResult['results'] = {
       step1: { status: 'pending', message: 'Installing prerequisites...' },
       step2: { status: 'pending', message: 'Creating GitHub repository...' },
       step3: { status: 'pending', message: 'Setting up GCP foundation project...' },
@@ -458,7 +464,7 @@ jobs:
         includeOptional: args.includeOptionalDeps || false
       });
 
-      if (prereqResult.summary?.some((r: any) => r.installed === false)) {
+      if ((prereqResult.summary as DependencyCheckResult[])?.some((r) => r.installed === false)) {
         results.step1 = { status: 'failed', message: 'Some prerequisites failed to install', details: prereqResult };
         return { status: 'failed', message: 'Prerequisites installation failed', results };
       }
@@ -474,7 +480,7 @@ jobs:
         addGitignore: true,
         addLicense: args.addLicense,
         topics: args.topics || ['gcp', 'cdktf', 'terraform', 'infrastructure']
-      });
+      }) as CreateGitHubRepoResult;
 
       if (repoResult.status === 'failed') {
         results.step2 = { status: 'failed', message: 'GitHub repository creation failed', details: repoResult };
@@ -513,7 +519,7 @@ jobs:
         billingAccount: args.billingAccount,
         ownerEmails: args.developerIdentity,
         regions: args.githubIdentity
-      });
+      }) as SetupGitHubSecretsResult;
 
       if (secretsResult.status === 'failed') {
         results.step4 = { status: 'failed', message: 'GitHub secrets setup failed', details: secretsResult };

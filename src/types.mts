@@ -12,7 +12,7 @@ export type Resource = {
 export type Tool = {
   name: string;
   description: string;
-  inputSchema: Record<string, any>;
+  inputSchema: Record<string, unknown>;
 };
 
 // Foundation Project Setup Types
@@ -60,8 +60,64 @@ export type MCPServerConfig = {
   name: string;
   version: string;
   capabilities: {
-    resources: Record<string, any>;
-    tools: Record<string, any>;
-    prompts: Record<string, any>;
+    resources: Record<string, unknown>;
+    tools: Record<string, unknown>;
+    prompts: Record<string, unknown>;
   };
+};
+
+export type DependencyCheckResult = {
+  name: string;
+  present?: boolean;
+  installed?: boolean;
+  error?: string;
+};
+
+export type CreateGitHubRepoResult = {
+  status: 'success' | 'failed';
+  message: string;
+  repoName?: string;
+  repoUrl?: string;
+  isPrivate?: boolean;
+  topics?: string[];
+  error?: string;
+};
+
+export type SetupGitHubSecretsResult = {
+  status: 'success' | 'failed';
+  message: string;
+  repoName: string;
+  results: Array<{ name: string; type: string; status: string; env?: string; error?: string }>;
+  summary: {
+    secretsCreated: number;
+    variablesCreated: number;
+    workflowsCreated: number;
+    totalItems: number;
+  };
+  error?: string;
+};
+
+export type InstallPrerequisitesResult = {
+  summary: DependencyCheckResult[];
+  message: string;
+};
+
+export type CompleteProjectSetupResult = {
+  status: 'success' | 'failed';
+  message: string;
+  results: {
+    step1: { status: string; message: string; details?: InstallPrerequisitesResult };
+    step2: { status: string; message: string; details?: CreateGitHubRepoResult };
+    step3: { status: string; message: string; details?: SetupFoundationProjectResult };
+    step4: { status: string; message: string; details?: SetupGitHubSecretsResult };
+  };
+  summary?: {
+    githubRepo?: string;
+    gcpProject?: string;
+    serviceAccount?: string;
+    secretsCreated?: number;
+    variablesCreated?: number;
+    workflowCreated?: number;
+  };
+  error?: string;
 };
