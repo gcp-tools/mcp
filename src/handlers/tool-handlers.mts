@@ -70,4 +70,44 @@ export class ToolHandlers {
       };
     }
   }
+
+  /**
+   * Check for and optionally install required and optional dependencies
+   */
+  static async installPrerequisites(args: { checkOnly?: boolean, includeOptional?: boolean }): Promise<any> {
+    const required = [
+      { name: 'terraform', check: 'terraform --version', install: 'brew install terraform' },
+      { name: 'cdktf', check: 'cdktf --version', install: 'npm install -g cdktf-cli' },
+      { name: 'cdktf-cli', check: 'cdktf --version', install: 'npm install -g cdktf-cli' },
+      { name: 'gcloud', check: 'gcloud --version', install: 'brew install --cask google-cloud-sdk' },
+    ];
+    const optional = [
+      { name: 'python', check: 'python3 --version', install: 'brew install python' },
+      { name: 'rust', check: 'rustc --version', install: 'brew install rust' },
+    ];
+    const toCheck = args.includeOptional ? required.concat(optional) : required;
+    const results = [];
+    for (const dep of toCheck) {
+      try {
+        await execAsync(dep.check);
+        results.push({ name: dep.name, present: true });
+      } catch {
+        results.push({ name: dep.name, present: false });
+        if (!args.checkOnly) {
+          try {
+            await execAsync(dep.install);
+            results.push({ name: dep.name, installed: true });
+          } catch (err) {
+            results.push({ name: dep.name, installed: false, error: String(err) });
+          }
+        }
+      }
+    }
+    return {
+      summary: results,
+      message: args.checkOnly
+        ? 'Dependency check complete.'
+        : 'Dependency check and install complete.',
+    };
+  }
 }

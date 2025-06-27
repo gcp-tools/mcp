@@ -38,10 +38,9 @@ Add this to your Cursor MCP configuration (`~/.cursor/mcp.json`):
 {
   "mcpServers": {
     "gcp-tools-mcp": {
-      "args": ["dist/index.mjs"],
+      "args": ["/path/to/gcp-tools-mcp/dist/index.mjs"],
       "command": "node",
-      "name": "gcp-tools-mcp",
-      "workingDirectory": "/path/to/gcp-tools-mcp/"
+      "name": "gcp-tools-mcp"
     }
   }
 }
