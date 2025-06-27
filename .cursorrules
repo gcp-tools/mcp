@@ -1,0 +1,25 @@
+# GCP Tools MCP Server Configuration
+
+## MCP Server Setup
+To use the GCP Tools MCP server in Cursor:
+
+1. Go to Cursor Settings (Cmd/Ctrl + ,)
+2. Navigate to Extensions → Model Context Protocol
+3. Add a new MCP server with these settings:
+   - Name: `gcp-tools-mcp`
+   - Command: `node`
+   - Args: `dist/index.js`
+   - Working Directory: `/Users/si/code/gcp-tools-mcp`
+
+## Available Tools
+- `setup_foundation_project`: Creates a new GCP foundation project
+
+## Available Resources
+- `gcp-tools-cdktf:library`: GCP Tools CDKTF Library documentation
+- `gcp-tools-cdktf:example-app`: Example application structure
+- `gcp:projects`: GCP project information
+
+## Usage Examples
+- "Set up a new GCP foundation project"
+- "Show me the gcp-tools-cdktf library structure"
+- "What's in the example application?"

@@ -1,51 +1,43 @@
 {
-  "name": "@gcp-tools/mcp",
-  "private": true,
-  "module": "index.mts",
+  "name": "gcp-tools-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for GCP Tools CDKTF",
   "type": "module",
+  "main": "dist/index.mjs",
   "scripts": {
-    "build": "npm run clean && tsc --pretty",
+    "build": "tsc --pretty",
     "clean": "rm -rf coverage dist",
+    "dev": "tsx src/index.mts",
     "lint": "biome check src --write",
-    "prepare": "husky",
-    "release": "semantic-release",
     "test": "vitest",
-    "test:watch": "vitest --watch",
-    "dev": "tsx src/index.ts",
-    "start": "node dist/index.js"
+    "prepublishOnly": "npm run build"
   },
+  "keywords": [
+    "mcp",
+    "gcp",
+    "cdktf",
+    "infrastructure",
+    "terraform"
+  ],
+  "author": "GCP Tools Team",
+  "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@commitlint/cli": "^19.3.0",
-    "@commitlint/config-conventional": "^19.2.2",
+    "@modelcontextprotocol/sdk": "^0.5.0",
     "@types/node": "^22.14.0",
-    "@vitest/coverage-v8": "^3.0.8",
-    "conventional-changelog-cli": "^5.0.0",
-    "conventional-changelog-eslint": "^6.0.0",
-    "conventional-recommended-bump": "^10.0.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^15.2.7",
-    "shelljs": "^0.8.5",
-    "standard-version": "^9.5.0",
-    "ts-node": "^10.9.2",
     "tsx": "^4.19.2",
     "typescript": "^5.8.2",
-    "vitest": "^3.0.8"
+    "vitest": "^3.0.8",
+    "zod": "^3.23.8"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.23.8",
-    "fastify": "^4.28.1",
-    "@fastify/cors": "^9.0.1",
-    "node-fetch": "^3.3.2"
+    "@modelcontextprotocol/sdk": "^0.5.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com:gcp-tools/mcp.git"
+  "engines": {
+    "node": ">=22.0.0"
   },
-  "lint-staged": {
-    "*": [
-      "biome check --no-errors-on-unmatched --files-ignore-unknown=true write"
-    ]
-  }
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ]
 }

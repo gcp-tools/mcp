@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 
-import { spawn } from 'child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 async function testMCPServer() {
-  console.log('Testing GCP Tools MCP Server...\n');
+  console.log('Testing GCP Tools MCP Server (Foundation Setup)...\n');
 
   // Create client transport
   const transport = new StdioClientTransport({
     command: 'node',
-    args: ['dist/index.js'],
+    args: ['dist/index.mjs'],
   });
 
   // Create client
@@ -61,19 +60,29 @@ async function testMCPServer() {
     console.log('  Content length:', resourceContent.contents[0].text.length, 'characters');
     console.log('');
 
-    // Test tool execution
-    console.log('Testing tool execution...');
+    // Test foundation project setup (dry run - won't actually execute)
+    console.log('Testing foundation project setup tool...');
+    console.log('Note: This is a dry run - the tool will validate inputs but not execute the script');
+
     const toolResult = await client.callTool({
-      name: 'scaffold_project',
+      name: 'setup_foundation_project',
       arguments: {
         projectName: 'test-project',
-        description: 'A test project',
-        template: 'basic',
-        languages: ['typescript'],
+        orgId: '123456789',
+        billingAccount: 'XXXXXX-XXXXXX-XXXXXX',
+        region: 'us-central1',
+        githubIdentity: 'test-org',
+        developerIdentity: 'developer@test.com',
       },
     });
+
     console.log('✓ Tool executed successfully');
-    console.log('  Result:', toolResult.content[0].text.substring(0, 200) + '...');
+    const result = JSON.parse(toolResult.content[0].text);
+    console.log('  Status:', result.status);
+    console.log('  Message:', result.message);
+    if (result.projectId) {
+      console.log('  Project ID:', result.projectId);
+    }
     console.log('');
 
     console.log('🎉 All tests passed! MCP server is working correctly.');

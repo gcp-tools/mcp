@@ -36,8 +36,7 @@
     "strictNullChecks": true,
     "strictPropertyInitialization": true,
     "stripInternal": true,
-    "target": "ESNext",
-    "verbatimModuleSyntax": true
+    "target": "ESNext"
   },
   "exclude": ["src/**/*.test.mts", "src/**/*.test.ts"],
   "include": ["src/**/*.mts", "src/**/*.ts"]
