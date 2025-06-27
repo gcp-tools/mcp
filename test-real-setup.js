@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 async function testRealSetup() {
-  console.log('🚀 Testing GCP Foundation Project Setup with Real Parameters...\n');
+  console.log(
+    '🚀 Testing GCP Foundation Project Setup with Real Parameters...\n',
+  )
 
   // Create client transport
   const transport = new StdioClientTransport({
     command: 'node',
     args: ['dist/index.mjs'],
-  });
+  })
 
   // Create client
   const client = new Client(
@@ -24,18 +26,20 @@ async function testRealSetup() {
         tools: {},
         prompts: {},
       },
-    }
-  );
+    },
+  )
 
   try {
     // Connect to server
-    console.log('Connecting to MCP server...');
-    await client.connect(transport);
-    console.log('✓ Connected to MCP server\n');
+    console.log('Connecting to MCP server...')
+    await client.connect(transport)
+    console.log('✓ Connected to MCP server\n')
 
     // Test foundation project setup with real parameters
-    console.log('Setting up GCP foundation project...');
-    console.log('⚠️  WARNING: This will create a real GCP project and may incur costs!\n');
+    console.log('Setting up GCP foundation project...')
+    console.log(
+      '⚠️  WARNING: This will create a real GCP project and may incur costs!\n',
+    )
 
     const toolResult = await client.callTool({
       name: 'setup_foundation_project',
@@ -47,33 +51,32 @@ async function testRealSetup() {
         githubIdentity: 'ibrokethat',
         developerIdentity: 'ibrokethat.com',
       },
-    });
+    })
 
-    console.log('✓ Tool executed successfully');
-    const result = JSON.parse(toolResult.content[0].text);
-    console.log('\n📋 Results:');
-    console.log('  Status:', result.status);
-    console.log('  Message:', result.message);
+    console.log('✓ Tool executed successfully')
+    const result = JSON.parse(toolResult.content[0].text)
+    console.log('\n📋 Results:')
+    console.log('  Status:', result.status)
+    console.log('  Message:', result.message)
     if (result.projectId) {
-      console.log('  Project ID:', result.projectId);
+      console.log('  Project ID:', result.projectId)
     }
     if (result.serviceAccount) {
-      console.log('  Service Account:', result.serviceAccount);
+      console.log('  Service Account:', result.serviceAccount)
     }
     if (result.workloadIdentityPool) {
-      console.log('  Workload Identity Pool:', result.workloadIdentityPool);
+      console.log('  Workload Identity Pool:', result.workloadIdentityPool)
     }
-    console.log('');
+    console.log('')
 
-    console.log('🎉 Foundation project setup completed!');
-
+    console.log('🎉 Foundation project setup completed!')
   } catch (error) {
-    console.error('❌ Test failed:', error);
-    process.exit(1);
+    console.error('❌ Test failed:', error)
+    process.exit(1)
   } finally {
     // Close the client
-    await client.close();
+    await client.close()
   }
 }
 
-testRealSetup().catch(console.error);
+testRealSetup().catch(console.error)
