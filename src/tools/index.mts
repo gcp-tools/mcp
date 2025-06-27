@@ -46,6 +46,44 @@ export const tools: Tool[] = [
       required: ['repoName'],
     },
   },
+  {
+    name: 'setup_github_secrets',
+    description: 'Create GitHub repository secrets and environment variables based on GCP foundation project setup.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Name of the GitHub repository' },
+        projectId: { type: 'string', description: 'GCP Project ID from foundation setup' },
+        serviceAccount: { type: 'string', description: 'GCP Service Account email from foundation setup' },
+        workloadIdentityPool: { type: 'string', description: 'Workload Identity Pool from foundation setup' },
+        region: { type: 'string', description: 'GCP region (e.g., us-central1)' },
+        orgId: { type: 'string', description: 'GCP Organization ID' },
+        billingAccount: { type: 'string', description: 'GCP Billing Account' },
+      },
+      required: ['repoName', 'projectId', 'serviceAccount', 'workloadIdentityPool', 'region'],
+    },
+  },
+  {
+    name: 'complete_project_setup',
+    description: 'Complete end-to-end setup: install prerequisites, create GitHub repo, setup GCP foundation project, and configure GitHub secrets.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectName: { type: 'string', description: 'Name for your project (used for both GCP project and GitHub repo)' },
+        orgId: { type: 'string', description: 'Your GCP organization ID' },
+        billingAccount: { type: 'string', description: 'Your GCP billing account' },
+        region: { type: 'string', description: 'Default region (e.g., "us-central1")' },
+        githubIdentity: { type: 'string', description: 'Your GitHub org/username' },
+        developerIdentity: { type: 'string', description: 'Your developer domain' },
+        repoDescription: { type: 'string', description: 'GitHub repository description' },
+        isPrivate: { type: 'boolean', description: 'Whether GitHub repository should be private (default: true)' },
+        addLicense: { type: 'string', description: 'License type for GitHub repo (e.g., "MIT", "Apache-2.0", "none")' },
+        topics: { type: 'array', items: { type: 'string' }, description: 'GitHub repository topics/tags' },
+        includeOptionalDeps: { type: 'boolean', description: 'Include optional dependencies (python, rust) in prerequisites check' },
+      },
+      required: ['projectName', 'orgId', 'billingAccount', 'region', 'githubIdentity', 'developerIdentity'],
+    },
+  },
 ];
 
 export const toolRegistry = new Map<string, Tool>();

@@ -206,4 +206,282 @@ export class ToolHandlers {
       };
     }
   }
+
+  /**
+   * Create GitHub repository secrets and environment variables based on GCP foundation setup
+   */
+  static async setupGitHubSecrets(args: {
+    repoName: string;
+    projectId: string;
+    serviceAccount: string;
+    workloadIdentityPool: string;
+    region: string;
+    orgId?: string;
+    billingAccount?: string;
+  }): Promise<any> {
+    try {
+      // Check if GitHub CLI is available and authenticated
+      try {
+        await execAsync('gh auth status');
+      } catch {
+        return {
+          status: 'failed',
+          message: 'Not authenticated with GitHub. Please run: gh auth login',
+          error: 'GitHub authentication required'
+        };
+      }
+
+      const results = [];
+      const secrets = [
+        { name: 'GCP_PROJECT_ID', value: args.projectId },
+        { name: 'GCP_SERVICE_ACCOUNT', value: args.serviceAccount },
+        { name: 'GCP_WORKLOAD_IDENTITY_POOL', value: args.workloadIdentityPool },
+        { name: 'GCP_REGION', value: args.region },
+      ];
+
+      // Add optional secrets if provided
+      if (args.orgId) {
+        secrets.push({ name: 'GCP_ORG_ID', value: args.orgId });
+      }
+      if (args.billingAccount) {
+        secrets.push({ name: 'GCP_BILLING_ACCOUNT', value: args.billingAccount });
+      }
+
+      // Create repository secrets
+      for (const secret of secrets) {
+        try {
+          const cmd = `gh secret set ${secret.name} --repo ${args.repoName} --body "${secret.value}"`;
+          await execAsync(cmd);
+          results.push({ name: secret.name, type: 'secret', status: 'created' });
+          console.error(`Created secret: ${secret.name}`);
+        } catch (error) {
+          results.push({ name: secret.name, type: 'secret', status: 'failed', error: String(error) });
+          console.error(`Failed to create secret ${secret.name}:`, error);
+        }
+      }
+
+      // Create environment variables (these are public, so only non-sensitive data)
+      const envVars = [
+        { name: 'GCP_PROJECT_ID', value: args.projectId },
+        { name: 'GCP_REGION', value: args.region },
+      ];
+
+      for (const envVar of envVars) {
+        try {
+          const cmd = `gh variable set ${envVar.name} --repo ${args.repoName} --body "${envVar.value}"`;
+          await execAsync(cmd);
+          results.push({ name: envVar.name, type: 'variable', status: 'created' });
+          console.error(`Created variable: ${envVar.name}`);
+        } catch (error) {
+          results.push({ name: envVar.name, type: 'variable', status: 'failed', error: String(error) });
+          console.error(`Failed to create variable ${envVar.name}:`, error);
+        }
+      }
+
+      // Create a GitHub Actions workflow file for GCP authentication
+      const workflowContent = `name: GCP Authentication Setup
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+env:
+  GCP_PROJECT_ID: \${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: \${{ vars.GCP_REGION }}
+
+jobs:
+  setup-gcp-auth:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Google Auth
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: \${{ secrets.GCP_WORKLOAD_IDENTITY_POOL }}
+        service_account: \${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure gcloud
+      run: |
+        gcloud config set project \${{ vars.GCP_PROJECT_ID }}
+        gcloud config set compute/region \${{ vars.GCP_REGION }}
+
+    - name: Verify Authentication
+      run: |
+        gcloud auth list
+        gcloud config list
+`;
+
+      try {
+        // Create .github/workflows directory if it doesn't exist
+        await execAsync('mkdir -p .github/workflows');
+
+        // Write the workflow file
+        const fs = await import('fs/promises');
+        await fs.writeFile('.github/workflows/gcp-auth.yml', workflowContent);
+
+        // Add and commit the workflow file
+        await execAsync('git add .github/workflows/gcp-auth.yml');
+        await execAsync('git commit -m "Add GCP authentication workflow"');
+        await execAsync('git push origin main');
+
+        results.push({ name: 'gcp-auth.yml', type: 'workflow', status: 'created' });
+        console.error('Created GCP authentication workflow');
+      } catch (error) {
+        results.push({ name: 'gcp-auth.yml', type: 'workflow', status: 'failed', error: String(error) });
+        console.error('Failed to create workflow file:', error);
+      }
+
+      return {
+        status: 'success',
+        message: 'GitHub secrets and environment variables setup completed',
+        repoName: args.repoName,
+        results: results,
+        summary: {
+          secretsCreated: results.filter(r => r.type === 'secret' && r.status === 'created').length,
+          variablesCreated: results.filter(r => r.type === 'variable' && r.status === 'created').length,
+          workflowsCreated: results.filter(r => r.type === 'workflow' && r.status === 'created').length,
+          totalItems: results.length
+        }
+      };
+    } catch (error) {
+      console.error('GitHub secrets setup failed:', error);
+      return {
+        status: 'failed',
+        message: `GitHub secrets setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Complete end-to-end project setup workflow
+   */
+  static async completeProjectSetup(args: {
+    projectName: string;
+    orgId: string;
+    billingAccount: string;
+    region: string;
+    githubIdentity: string;
+    developerIdentity: string;
+    repoDescription?: string;
+    isPrivate?: boolean;
+    addLicense?: string;
+    topics?: string[];
+    includeOptionalDeps?: boolean;
+  }): Promise<any> {
+    const results: {
+      step1: { status: string; message: string; details?: any };
+      step2: { status: string; message: string; details?: any };
+      step3: { status: string; message: string; details?: any };
+      step4: { status: string; message: string; details?: any };
+    } = {
+      step1: { status: 'pending', message: 'Installing prerequisites...' },
+      step2: { status: 'pending', message: 'Creating GitHub repository...' },
+      step3: { status: 'pending', message: 'Setting up GCP foundation project...' },
+      step4: { status: 'pending', message: 'Configuring GitHub secrets...' },
+    };
+
+    try {
+      // Step 1: Install prerequisites
+      console.error('Step 1: Installing prerequisites...');
+      const prereqResult = await ToolHandlers.installPrerequisites({
+        checkOnly: false,
+        includeOptional: args.includeOptionalDeps || false
+      });
+
+      if (prereqResult.summary?.some((r: any) => r.installed === false)) {
+        results.step1 = { status: 'failed', message: 'Some prerequisites failed to install', details: prereqResult };
+        return { status: 'failed', message: 'Prerequisites installation failed', results };
+      }
+      results.step1 = { status: 'success', message: 'Prerequisites installed successfully', details: prereqResult };
+
+      // Step 2: Create GitHub repository
+      console.error('Step 2: Creating GitHub repository...');
+      const repoResult = await ToolHandlers.createGitHubRepo({
+        repoName: args.projectName,
+        description: args.repoDescription || `GCP infrastructure for ${args.projectName}`,
+        isPrivate: args.isPrivate !== false,
+        addReadme: true,
+        addGitignore: true,
+        addLicense: args.addLicense,
+        topics: args.topics || ['gcp', 'cdktf', 'terraform', 'infrastructure']
+      });
+
+      if (repoResult.status === 'failed') {
+        results.step2 = { status: 'failed', message: 'GitHub repository creation failed', details: repoResult };
+        return { status: 'failed', message: 'GitHub repository creation failed', results };
+      }
+      results.step2 = { status: 'success', message: 'GitHub repository created successfully', details: repoResult };
+
+      // Step 3: Setup GCP foundation project
+      console.error('Step 3: Setting up GCP foundation project...');
+      const foundationResult = await ToolHandlers.setupFoundationProject({
+        projectName: args.projectName,
+        orgId: args.orgId,
+        billingAccount: args.billingAccount,
+        region: args.region,
+        githubIdentity: args.githubIdentity,
+        developerIdentity: args.developerIdentity
+      });
+
+      if (foundationResult.status === 'failed') {
+        results.step3 = { status: 'failed', message: 'GCP foundation project setup failed', details: foundationResult };
+        return { status: 'failed', message: 'GCP foundation project setup failed', results };
+      }
+      results.step3 = { status: 'success', message: 'GCP foundation project setup completed', details: foundationResult };
+
+      // Step 4: Setup GitHub secrets
+      console.error('Step 4: Setting up GitHub secrets...');
+      const secretsResult = await ToolHandlers.setupGitHubSecrets({
+        repoName: args.projectName,
+        projectId: foundationResult.projectId,
+        serviceAccount: foundationResult.serviceAccount,
+        workloadIdentityPool: foundationResult.workloadIdentityPool,
+        region: args.region,
+        orgId: args.orgId,
+        billingAccount: args.billingAccount
+      });
+
+      if (secretsResult.status === 'failed') {
+        results.step4 = { status: 'failed', message: 'GitHub secrets setup failed', details: secretsResult };
+        return { status: 'failed', message: 'GitHub secrets setup failed', results };
+      }
+      results.step4 = { status: 'success', message: 'GitHub secrets configured successfully', details: secretsResult };
+
+      // All steps completed successfully
+      return {
+        status: 'success',
+        message: 'Complete project setup finished successfully!',
+        results,
+        summary: {
+          githubRepo: repoResult.repoUrl,
+          gcpProject: foundationResult.projectId,
+          serviceAccount: foundationResult.serviceAccount,
+          secretsCreated: secretsResult.summary?.secretsCreated || 0,
+          variablesCreated: secretsResult.summary?.variablesCreated || 0,
+          workflowCreated: secretsResult.summary?.workflowsCreated || 0
+        }
+      };
+
+    } catch (error) {
+      console.error('Complete project setup failed:', error);
+      return {
+        status: 'failed',
+        message: `Complete project setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        results
+      };
+    }
+  }
 }

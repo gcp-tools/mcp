@@ -86,6 +86,10 @@ export class GcpToolsMCPServer {
         return await ToolHandlers.installPrerequisites(args);
       case 'create_github_repo':
         return await ToolHandlers.createGitHubRepo(args);
+      case 'setup_github_secrets':
+        return await ToolHandlers.setupGitHubSecrets(args);
+      case 'complete_project_setup':
+        return await ToolHandlers.completeProjectSetup(args);
       default:
         throw new Error(`Unknown tool: ${name}`);
     }

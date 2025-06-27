@@ -123,9 +123,64 @@ Restart Cursor to pick up the new MCP server configuration.
 
 **The MCP server will:**
 1. Check and install prerequisites (terraform, cdktf, gcloud, gh)
-2. Create a new GCP foundation project
-3. Create a GitHub repository for your code
-4. Return all the details you need to get started
+2. Create a new GitHub repository for your code
+3. Create a new GCP foundation project
+4. Configure GitHub secrets and environment variables
+5. Return all the details you need to get started
+
+**Example response:**
+```json
+{
+  "status": "success",
+  "message": "Complete project setup finished successfully!",
+  "results": {
+    "step1": { "status": "success", "message": "Prerequisites installed successfully" },
+    "step2": { "status": "success", "message": "GitHub repository created successfully" },
+    "step3": { "status": "success", "message": "GCP foundation project setup completed" },
+    "step4": { "status": "success", "message": "GitHub secrets configured successfully" }
+  },
+  "summary": {
+    "githubRepo": "https://github.com/yourusername/my-app",
+    "gcpProject": "my-app-fdn-1234567890",
+    "serviceAccount": "my-app-sa@my-app-fdn-1234567890.iam.gserviceaccount.com",
+    "secretsCreated": 4,
+    "variablesCreated": 2,
+    "workflowCreated": 1
+  }
+}
+```
+
+### Example 6: Setup GitHub Secrets
+
+**You ask in Cursor:**
+> "Configure GitHub secrets for my project with the GCP project details"
+
+**The MCP server will:**
+- Create GitHub repository secrets for sensitive data (service account, workload identity pool)
+- Create GitHub environment variables for non-sensitive data (project ID, region)
+- Add a GitHub Actions workflow for GCP authentication
+- Return a summary of what was created
+
+**Example response:**
+```json
+{
+  "status": "success",
+  "message": "GitHub secrets and environment variables setup completed",
+  "repoName": "my-app",
+  "results": [
+    { "name": "GCP_PROJECT_ID", "type": "secret", "status": "created" },
+    { "name": "GCP_SERVICE_ACCOUNT", "type": "secret", "status": "created" },
+    { "name": "GCP_WORKLOAD_IDENTITY_POOL", "type": "secret", "status": "created" },
+    { "name": "GCP_REGION", "type": "variable", "status": "created" }
+  ],
+  "summary": {
+    "secretsCreated": 3,
+    "variablesCreated": 1,
+    "workflowsCreated": 1,
+    "totalItems": 5
+  }
+}
+```
 
 ## Available Tools
 
@@ -197,6 +252,70 @@ Creates a new GitHub repository with proper configuration.
     "addGitignore": true,
     "addLicense": "MIT",
     "topics": ["gcp", "cdktf", "terraform", "infrastructure"]
+  }
+}
+```
+
+### `setup_github_secrets`
+Creates GitHub repository secrets and environment variables based on GCP foundation project setup.
+
+**Parameters:**
+- `repoName` (string): Name of the GitHub repository
+- `projectId` (string): GCP Project ID from foundation setup
+- `serviceAccount` (string): GCP Service Account email from foundation setup
+- `workloadIdentityPool` (string): Workload Identity Pool from foundation setup
+- `region` (string): GCP region (e.g., us-central1)
+- `orgId` (string): GCP Organization ID (optional)
+- `billingAccount` (string): GCP Billing Account (optional)
+
+**Example usage:**
+```json
+{
+  "name": "setup_github_secrets",
+  "arguments": {
+    "repoName": "my-app",
+    "projectId": "my-app-fdn-1234567890",
+    "serviceAccount": "my-app-sa@my-app-fdn-1234567890.iam.gserviceaccount.com",
+    "workloadIdentityPool": "projects/123456789/locations/global/workloadIdentityPools/my-app-pool",
+    "region": "us-central1",
+    "orgId": "123456789",
+    "billingAccount": "XXXXXX-XXXXXX-XXXXXX"
+  }
+}
+```
+
+### `complete_project_setup`
+Complete end-to-end setup: install prerequisites, create GitHub repo, setup GCP foundation project, and configure GitHub secrets.
+
+**Parameters:**
+- `projectName` (string): Name for your project (used for both GCP project and GitHub repo)
+- `orgId` (string): Your GCP organization ID
+- `billingAccount` (string): Your GCP billing account
+- `region` (string): Default region (e.g., "us-central1")
+- `githubIdentity` (string): Your GitHub org/username
+- `developerIdentity` (string): Your developer domain
+- `repoDescription` (string): GitHub repository description (optional)
+- `isPrivate` (boolean): Whether GitHub repository should be private (default: true)
+- `addLicense` (string): License type for GitHub repo (optional)
+- `topics` (array): GitHub repository topics/tags (optional)
+- `includeOptionalDeps` (boolean): Include optional dependencies (python, rust) (optional)
+
+**Example usage:**
+```json
+{
+  "name": "complete_project_setup",
+  "arguments": {
+    "projectName": "my-app",
+    "orgId": "123456789",
+    "billingAccount": "XXXXXX-XXXXXX-XXXXXX",
+    "region": "us-central1",
+    "githubIdentity": "my-org",
+    "developerIdentity": "mycompany.com",
+    "repoDescription": "My GCP application infrastructure",
+    "isPrivate": true,
+    "addLicense": "MIT",
+    "topics": ["gcp", "cdktf", "terraform", "infrastructure"],
+    "includeOptionalDeps": false
   }
 }
 ```
