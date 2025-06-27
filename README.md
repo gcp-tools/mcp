@@ -14,6 +14,13 @@ If you want to set up everything for a new GCP project and GitHub repository in 
 
 > "Set up everything I need for a new GCP project called 'my-app'"
 
+**Important:** Before running the complete setup, you must:
+- Install all prerequisites (the MCP server will help with this)
+- Authenticate with GitHub CLI: `gh auth login`
+- Authenticate with Google Cloud SDK: `gcloud auth login`
+
+If you have not authenticated with both, the setup will stop and prompt you to do so.
+
 The MCP server will:
 1. Check and install prerequisites (terraform, cdktf, gcloud, gh)
 2. Create a new GitHub repository for your code
@@ -57,19 +64,33 @@ If you prefer, you can perform each part of the setup individually. Just ask Cur
    > "Install any missing dependencies for GCP development"
    - Installs any missing tools automatically.
 
-3. **Create a GitHub repository**
+3. **Authenticate with GitHub CLI**
+   > Run in your terminal: `gh auth login`
+   - You must be logged in to GitHub CLI before creating repos or setting secrets.
+
+4. **Authenticate with Google Cloud SDK**
+   > Run in your terminal: `gcloud auth login`
+   - You must be logged in to gcloud before creating GCP projects or resources.
+
+5. **Create a GitHub repository**
    > "Create a new GitHub repository for my GCP project"
    - Creates a new private repo, README, .gitignore, etc.
 
-4. **Set up a GCP foundation project**
+6. **Set up a GCP foundation project**
    > "Create a new GCP foundation project for my app called 'my-app'"
    - Creates the GCP project, service accounts, IAM, Workload Identity, etc.
 
-5. **Configure GitHub secrets and variables**
+7. **Configure GitHub secrets and variables**
    > "Configure all required GitHub secrets and variables for my repo"
    - Sets up all secrets/variables for CI/CD and environment separation.
 
 You can run any of these steps independently, in any order, and repeat as needed.
+
+---
+
+### Troubleshooting
+
+If the complete setup fails with a message about authentication, make sure you have run both `gh auth login` and `gcloud auth login` in your terminal, then re-run the setup.
 
 ## Features
 

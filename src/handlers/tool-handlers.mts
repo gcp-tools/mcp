@@ -618,6 +618,53 @@ export async function completeProjectSetup(args: {
       details: prereqResult,
     }
 
+    // Check GitHub CLI authentication
+    let ghAuthOk = false
+    try {
+      const { stdout } = await execAsync('gh auth status')
+      if (stdout && stdout.includes('Logged in to github.com')) {
+        ghAuthOk = true
+      }
+    } catch (e) {
+      ghAuthOk = false
+    }
+    if (!ghAuthOk) {
+      results.step1 = {
+        status: 'failed',
+        message: 'GitHub CLI is not authenticated. Please run: gh auth login',
+        details: prereqResult,
+      }
+      return {
+        status: 'failed',
+        message: 'GitHub CLI is not authenticated. Please run: gh auth login and then re-run the setup.',
+        results,
+      }
+    }
+
+    // Check gcloud authentication
+    let gcloudAuthOk = false
+    try {
+      const { stdout } = await execAsync('gcloud auth list --format=json')
+      const accounts = JSON.parse(stdout)
+      if (Array.isArray(accounts) && accounts.some(a => a.status === 'ACTIVE')) {
+        gcloudAuthOk = true
+      }
+    } catch (e) {
+      gcloudAuthOk = false
+    }
+    if (!gcloudAuthOk) {
+      results.step1 = {
+        status: 'failed',
+        message: 'gcloud is not authenticated. Please run: gcloud auth login',
+        details: prereqResult,
+      }
+      return {
+        status: 'failed',
+        message: 'gcloud is not authenticated. Please run: gcloud auth login and then re-run the setup.',
+        results,
+      }
+    }
+
     // Step 2: Create GitHub repository
     console.error('Step 2: Creating GitHub repository...')
     const repoResult = (await createGitHubRepo({
