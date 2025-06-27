@@ -74,10 +74,10 @@ Restart Cursor to pick up the new MCP server configuration.
 ### Example 3: Set Up a New GCP Project
 
 **You ask in Cursor:**
-> "Create a new GCP foundation project for my app called 'my-great-app'"
+> "Create a new GCP foundation project for my app called 'my-app'"
 
 **The MCP server will:**
-- Create a new GCP project with ID like `my-great-app-fdn-1234567890`
+- Create a new GCP project with ID like `my-app-fdn-1234567890`
 - Set up service accounts and IAM permissions
 - Configure Workload Identity for GitHub Actions
 - Return project details
@@ -85,9 +85,9 @@ Restart Cursor to pick up the new MCP server configuration.
 **Example response:**
 ```json
 {
-  "projectId": "my-great-app-fdn-1234567890",
-  "serviceAccount": "my-great-app-sa@my-great-app-fdn-1234567890.iam.gserviceaccount.com",
-  "workloadIdentityPool": "projects/123456789/locations/global/workloadIdentityPools/my-great-app-pool",
+  "projectId": "my-app-fdn-1234567890",
+  "serviceAccount": "my-app-sa@my-app-fdn-1234567890.iam.gserviceaccount.com",
+  "workloadIdentityPool": "projects/123456789/locations/global/workloadIdentityPools/my-app-pool",
   "status": "success",
   "message": "Foundation project setup completed successfully"
 }
