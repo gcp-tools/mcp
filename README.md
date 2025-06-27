@@ -93,6 +93,40 @@ Restart Cursor to pick up the new MCP server configuration.
 }
 ```
 
+### Example 4: Create a GitHub Repository
+
+**You ask in Cursor:**
+> "Create a new GitHub repository for my GCP project"
+
+**The MCP server will:**
+- Check if GitHub CLI is installed and authenticated
+- Create a new private repository with README and .gitignore
+- Add relevant topics/tags
+- Return the repository URL
+
+**Example response:**
+```json
+{
+  "status": "success",
+  "message": "GitHub repository created successfully",
+  "repoName": "my-app",
+  "repoUrl": "https://github.com/yourusername/my-app",
+  "isPrivate": true,
+  "topics": []
+}
+```
+
+### Example 5: Complete Setup Workflow
+
+**You ask in Cursor:**
+> "Set up everything I need for a new GCP project called 'my-app'"
+
+**The MCP server will:**
+1. Check and install prerequisites (terraform, cdktf, gcloud, gh)
+2. Create a new GCP foundation project
+3. Create a GitHub repository for your code
+4. Return all the details you need to get started
+
 ## Available Tools
 
 ### `install_prerequisites`
@@ -135,6 +169,34 @@ Creates a new GCP foundation project with all infrastructure.
     "region": "us-central1",
     "githubIdentity": "my-org",
     "developerIdentity": "mycompany.com"
+  }
+}
+```
+
+### `create_github_repo`
+Creates a new GitHub repository with proper configuration.
+
+**Parameters:**
+- `repoName` (string): Name for the repository
+- `description` (string): Repository description
+- `isPrivate` (boolean): Whether repository should be private (default: true)
+- `addReadme` (boolean): Add README file (default: true)
+- `addGitignore` (boolean): Add .gitignore for Node.js/TypeScript (default: true)
+- `addLicense` (string): License type (e.g., "MIT", "Apache-2.0", "none")
+- `topics` (array): Repository topics/tags
+
+**Example usage:**
+```json
+{
+  "name": "create_github_repo",
+  "arguments": {
+    "repoName": "my-app",
+    "description": "My GCP application infrastructure",
+    "isPrivate": true,
+    "addReadme": true,
+    "addGitignore": true,
+    "addLicense": "MIT",
+    "topics": ["gcp", "cdktf", "terraform", "infrastructure"]
   }
 }
 ```

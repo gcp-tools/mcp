@@ -17,6 +17,35 @@ export const tools: Tool[] = [
       required: ['projectName', 'orgId', 'billingAccount', 'region', 'githubIdentity', 'developerIdentity'],
     },
   },
+  {
+    name: 'install_prerequisites',
+    description: 'Check for and optionally install required (terraform, cdktf, cdktf-cli, gcloud, gh) and optional (python, rust) dependencies.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        checkOnly: { type: 'boolean', description: 'If true, only check for dependencies, do not install.' },
+        includeOptional: { type: 'boolean', description: 'If true, also check/install optional dependencies (python, rust).' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'create_github_repo',
+    description: 'Create a new GitHub repository with proper structure and configuration for GCP/CDKTF projects.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Name for the new repository' },
+        description: { type: 'string', description: 'Repository description' },
+        isPrivate: { type: 'boolean', description: 'Whether the repository should be private (default: true)' },
+        addReadme: { type: 'boolean', description: 'Whether to add a README file (default: true)' },
+        addGitignore: { type: 'boolean', description: 'Whether to add .gitignore for Node.js/TypeScript (default: true)' },
+        addLicense: { type: 'string', description: 'License type (e.g., "MIT", "Apache-2.0", "none")' },
+        topics: { type: 'array', items: { type: 'string' }, description: 'Repository topics/tags' },
+      },
+      required: ['repoName'],
+    },
+  },
 ];
 
 export const toolRegistry = new Map<string, Tool>();
