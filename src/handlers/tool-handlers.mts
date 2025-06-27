@@ -51,11 +51,23 @@ export class ToolHandlers {
       const projectIdMatch = stdout.match(/Project ID: ([^\n]+)/);
       const serviceAccountMatch = stdout.match(/Service Account: ([^\n]+)/);
       const workloadIdentityPoolMatch = stdout.match(/Workload Identity Pool: ([^\n]+)/);
+      const projectNumberMatch = stdout.match(/Project Number: ([^\n]+)/);
+      const devWipMatch = stdout.match(/Dev Workload Identity Provider: ([^\n]+)/);
+      const testWipMatch = stdout.match(/Test Workload Identity Provider: ([^\n]+)/);
+      const sbxWipMatch = stdout.match(/Sbx Workload Identity Provider: ([^\n]+)/);
+      const prodWipMatch = stdout.match(/Prod Workload Identity Provider: ([^\n]+)/);
 
       return {
         projectId: projectIdMatch?.[1] || '',
         serviceAccount: serviceAccountMatch?.[1] || '',
         workloadIdentityPool: workloadIdentityPoolMatch?.[1] || '',
+        projectNumber: projectNumberMatch?.[1] || '',
+        workloadIdentityProviders: {
+          dev: devWipMatch?.[1] || '',
+          test: testWipMatch?.[1] || '',
+          sbx: sbxWipMatch?.[1] || '',
+          prod: prodWipMatch?.[1] || '',
+        },
         status: 'success',
         message: 'Foundation project setup completed successfully',
       };
@@ -65,6 +77,13 @@ export class ToolHandlers {
         projectId: '',
         serviceAccount: '',
         workloadIdentityPool: '',
+        projectNumber: '',
+        workloadIdentityProviders: {
+          dev: '',
+          test: '',
+          sbx: '',
+          prod: '',
+        },
         status: 'failed',
         message: `Foundation project setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
@@ -215,9 +234,13 @@ export class ToolHandlers {
     projectId: string;
     serviceAccount: string;
     workloadIdentityPool: string;
+    projectNumber?: string;
+    workloadIdentityProviders?: { dev?: string; test?: string; sbx?: string; prod?: string };
     region: string;
     orgId?: string;
     billingAccount?: string;
+    ownerEmails?: string;
+    regions?: string;
   }): Promise<any> {
     try {
       // Check if GitHub CLI is available and authenticated
@@ -232,50 +255,85 @@ export class ToolHandlers {
       }
 
       const results = [];
+      // --- Environment-specific secrets/variables ---
+      const environments: Array<'dev' | 'test' | 'sbx' | 'prod'> = ['dev', 'test', 'sbx', 'prod'];
+      for (const env of environments) {
+        // Set GCP_TOOLS_ENVIRONMENT variable
+        try {
+          const cmd = `gh variable set GCP_TOOLS_ENVIRONMENT --repo ${args.repoName} --env ${env} --body \"${env}\"`;
+          await execAsync(cmd);
+          results.push({ name: 'GCP_TOOLS_ENVIRONMENT', env, type: 'variable', status: 'created' });
+        } catch (error) {
+          results.push({ name: 'GCP_TOOLS_ENVIRONMENT', env, type: 'variable', status: 'failed', error: String(error) });
+        }
+        // Set GCP_TOOLS_WORKLOAD_IDENTITY_PROVIDER secret
+        const provider = args.workloadIdentityProviders?.[env];
+        if (provider) {
+          try {
+            const cmd = `gh secret set GCP_TOOLS_WORKLOAD_IDENTITY_PROVIDER --repo ${args.repoName} --env ${env} --body \"${provider}\"`;
+            await execAsync(cmd);
+            results.push({ name: 'GCP_TOOLS_WORKLOAD_IDENTITY_PROVIDER', env, type: 'secret', status: 'created' });
+          } catch (error) {
+            results.push({ name: 'GCP_TOOLS_WORKLOAD_IDENTITY_PROVIDER', env, type: 'secret', status: 'failed', error: String(error) });
+          }
+        }
+      }
+
+      // --- Global secrets ---
       const secrets = [
-        { name: 'GCP_PROJECT_ID', value: args.projectId },
-        { name: 'GCP_SERVICE_ACCOUNT', value: args.serviceAccount },
-        { name: 'GCP_WORKLOAD_IDENTITY_POOL', value: args.workloadIdentityPool },
-        { name: 'GCP_REGION', value: args.region },
+        { name: 'GCP_TOOLS_BILLING_ACCOUNT', value: args.billingAccount },
+        { name: 'GCP_TOOLS_FOUNDATION_PROJECT_ID', value: args.projectId },
+        { name: 'GCP_TOOLS_ORG_ID', value: args.orgId },
+        { name: 'GCP_TOOLS_SERVICE_ACCOUNT_EMAIL', value: args.serviceAccount },
+        { name: 'GCP_TOOLS_FOUNDATION_PROJECT_NUMBER', value: args.projectNumber },
+        { name: 'GCP_TOOLS_TERRAFORM_REMOTE_STATE_BUCKET_ID', value: `${args.projectId}-terraform-state` },
       ];
-
-      // Add optional secrets if provided
-      if (args.orgId) {
-        secrets.push({ name: 'GCP_ORG_ID', value: args.orgId });
-      }
-      if (args.billingAccount) {
-        secrets.push({ name: 'GCP_BILLING_ACCOUNT', value: args.billingAccount });
-      }
-
-      // Create repository secrets
       for (const secret of secrets) {
-        try {
-          const cmd = `gh secret set ${secret.name} --repo ${args.repoName} --body "${secret.value}"`;
-          await execAsync(cmd);
-          results.push({ name: secret.name, type: 'secret', status: 'created' });
-          console.error(`Created secret: ${secret.name}`);
-        } catch (error) {
-          results.push({ name: secret.name, type: 'secret', status: 'failed', error: String(error) });
-          console.error(`Failed to create secret ${secret.name}:`, error);
+        if (secret.value) {
+          try {
+            const cmd = `gh secret set ${secret.name} --repo ${args.repoName} --body "${secret.value}"`;
+            await execAsync(cmd);
+            results.push({ name: secret.name, type: 'secret', status: 'created' });
+          } catch (error) {
+            results.push({ name: secret.name, type: 'secret', status: 'failed', error: String(error) });
+          }
         }
       }
 
-      // Create environment variables (these are public, so only non-sensitive data)
-      const envVars = [
-        { name: 'GCP_PROJECT_ID', value: args.projectId },
-        { name: 'GCP_REGION', value: args.region },
+      // --- Global variables ---
+      const variables = [
+        { name: 'GCP_TOOLS_DEVELOPER_IDENTITY_SPECIFIER', value: args.ownerEmails },
+        { name: 'GCP_TOOLS_GITHUB_IDENTITY_SPECIFIER', value: args.regions },
+        { name: 'GCP_TOOLS_PROJECT_NAME', value: args.repoName },
+        { name: 'GCP_TOOLS_OWNER_EMAILS', value: args.ownerEmails },
+        { name: 'GCP_TOOLS_REGIONS', value: args.regions },
       ];
-
-      for (const envVar of envVars) {
-        try {
-          const cmd = `gh variable set ${envVar.name} --repo ${args.repoName} --body "${envVar.value}"`;
-          await execAsync(cmd);
-          results.push({ name: envVar.name, type: 'variable', status: 'created' });
-          console.error(`Created variable: ${envVar.name}`);
-        } catch (error) {
-          results.push({ name: envVar.name, type: 'variable', status: 'failed', error: String(error) });
-          console.error(`Failed to create variable ${envVar.name}:`, error);
+      for (const variable of variables) {
+        if (variable.value) {
+          try {
+            const cmd = `gh variable set ${variable.name} --repo ${args.repoName} --body "${variable.value}"`;
+            await execAsync(cmd);
+            results.push({ name: variable.name, type: 'variable', status: 'created' });
+          } catch (error) {
+            results.push({ name: variable.name, type: 'variable', status: 'failed', error: String(error) });
+          }
         }
+      }
+
+      // --- GCP_REGION as both secret and variable ---
+      try {
+        const cmd = `gh secret set GCP_TOOLS_REGIONS --repo ${args.repoName} --body "${args.region}"`;
+        await execAsync(cmd);
+        results.push({ name: 'GCP_TOOLS_REGIONS', type: 'secret', status: 'created' });
+      } catch (error) {
+        results.push({ name: 'GCP_TOOLS_REGIONS', type: 'secret', status: 'failed', error: String(error) });
+      }
+      try {
+        const cmd = `gh variable set GCP_TOOLS_REGIONS --repo ${args.repoName} --body "${args.region}"`;
+        await execAsync(cmd);
+        results.push({ name: 'GCP_TOOLS_REGIONS', type: 'variable', status: 'created' });
+      } catch (error) {
+        results.push({ name: 'GCP_TOOLS_REGIONS', type: 'variable', status: 'failed', error: String(error) });
       }
 
       // Create a GitHub Actions workflow file for GCP authentication
@@ -448,9 +506,13 @@ jobs:
         projectId: foundationResult.projectId,
         serviceAccount: foundationResult.serviceAccount,
         workloadIdentityPool: foundationResult.workloadIdentityPool,
+        projectNumber: foundationResult.projectNumber,
+        workloadIdentityProviders: foundationResult.workloadIdentityProviders,
         region: args.region,
         orgId: args.orgId,
-        billingAccount: args.billingAccount
+        billingAccount: args.billingAccount,
+        ownerEmails: args.developerIdentity,
+        regions: args.githubIdentity
       });
 
       if (secretsResult.status === 'failed') {

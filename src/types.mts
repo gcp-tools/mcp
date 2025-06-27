@@ -31,6 +31,13 @@ export type SetupFoundationProjectResult = {
   projectId: string;
   serviceAccount: string;
   workloadIdentityPool: string;
+  projectNumber?: string;
+  workloadIdentityProviders?: {
+    dev?: string;
+    test?: string;
+    sbx?: string;
+    prod?: string;
+  };
   status: 'success' | 'failed';
   message: string;
 };

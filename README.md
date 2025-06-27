@@ -1,6 +1,87 @@
 # GCP Tools MCP Server
 
-A Model Context Protocol (MCP) server that provides tools and resources for working with Google Cloud Platform (GCP) infrastructure using the gcp-tools-cdktf library.
+## Overview
+
+The GCP Tools MCP server automates Google Cloud Platform infrastructure setup and GitHub repository configuration for modern cloud-native projects. It provides tools to:
+- Install all required prerequisites (terraform, cdktf, gcloud, gh)
+- Create and configure a new GitHub repository
+- Set up a GCP foundation project with service accounts, IAM, and Workload Identity
+- Automatically create all required GitHub secrets and variables for CI/CD, including environment-specific values for dev, test, sbx, and prod
+
+## Environment-Specific Secrets and Variables
+
+When you run the complete setup workflow, the MCP server will create the following in your GitHub repository for **each environment** (`dev`, `test`, `sbx`, `prod`):
+
+### Per-Environment (dev, test, sbx, prod)
+- **Secret:** `GCP_TOOLS_WORKLOAD_IDENTITY_PROVIDER` — The Workload Identity Provider resource path for that environment
+- **Variable:** `GCP_TOOLS_ENVIRONMENT` — The environment name (e.g., `dev`)
+
+### Global Secrets
+- `GCP_TOOLS_BILLING_ACCOUNT` — Your GCP billing account
+- `GCP_TOOLS_FOUNDATION_PROJECT_ID` — The GCP project ID
+- `GCP_TOOLS_ORG_ID` — Your GCP organization ID
+- `GCP_TOOLS_SERVICE_ACCOUNT_EMAIL` — The service account email
+- `GCP_TOOLS_FOUNDATION_PROJECT_NUMBER` — The GCP project number (extracted automatically)
+- `GCP_TOOLS_TERRAFORM_REMOTE_STATE_BUCKET_ID` — The Terraform state bucket name (e.g., `${projectId}-terraform-state`)
+
+### Global Variables
+- `GCP_TOOLS_DEVELOPER_IDENTITY_SPECIFIER` — (manual input)
+- `GCP_TOOLS_GITHUB_IDENTITY_SPECIFIER` — (manual input)
+- `GCP_TOOLS_PROJECT_NAME` — The project/repo name
+- `GCP_TOOLS_OWNER_EMAILS` — (manual input)
+- `GCP_TOOLS_REGIONS` — (manual input)
+
+### Region as Both Secret and Variable
+- `GCP_TOOLS_REGIONS` is set as both a secret and a variable for compatibility
+
+## Mapping to deploy.yml
+
+The MCP server will ensure all secrets and variables required by your `.github/workflows/deploy.yml` are present, including the environment-specific ones. You only need to provide `ownerEmails` and `regions` as manual input if you want them set.
+
+## Example: Complete Setup Workflow
+
+**You ask in Cursor:**
+> "Set up everything I need for a new GCP project called 'my-app'"
+
+**The MCP server will:**
+1. Check and install prerequisites (terraform, cdktf, gcloud, gh)
+2. Create a new GitHub repository for your code
+3. Create a new GCP foundation project
+4. Configure all GitHub secrets and variables, including per-environment values
+5. Return all the details you need to get started
+
+**Example response:**
+```json
+{
+  "status": "success",
+  "message": "Complete project setup finished successfully!",
+  "results": {
+    "step1": { "status": "success", "message": "Prerequisites installed successfully" },
+    "step2": { "status": "success", "message": "GitHub repository created successfully" },
+    "step3": { "status": "success", "message": "GCP foundation project setup completed" },
+    "step4": { "status": "success", "message": "GitHub secrets configured successfully" }
+  },
+  "summary": {
+    "githubRepo": "https://github.com/yourusername/my-app",
+    "gcpProject": "my-app-fdn-1234567890",
+    "serviceAccount": "my-app-sa@my-app-fdn-1234567890.iam.gserviceaccount.com",
+    "secretsCreated": 4,
+    "variablesCreated": 2,
+    "workflowCreated": 1
+  }
+}
+```
+
+## Manual Inputs
+- `ownerEmails` and `regions` must be provided by you if you want them set as variables/secrets.
+
+## Security
+- All sensitive values are stored as GitHub secrets (encrypted)
+- Environment-specific secrets ensure least-privilege and separation between dev, test, sbx, and prod
+- Workload Identity is used for secure, keyless authentication from GitHub Actions to GCP
+
+## Questions?
+If you need to customize the secrets/variables further, just ask in Cursor!
 
 ## What This Does
 
@@ -113,72 +194,6 @@ Restart Cursor to pick up the new MCP server configuration.
   "repoUrl": "https://github.com/yourusername/my-app",
   "isPrivate": true,
   "topics": []
-}
-```
-
-### Example 5: Complete Setup Workflow
-
-**You ask in Cursor:**
-> "Set up everything I need for a new GCP project called 'my-app'"
-
-**The MCP server will:**
-1. Check and install prerequisites (terraform, cdktf, gcloud, gh)
-2. Create a new GitHub repository for your code
-3. Create a new GCP foundation project
-4. Configure GitHub secrets and environment variables
-5. Return all the details you need to get started
-
-**Example response:**
-```json
-{
-  "status": "success",
-  "message": "Complete project setup finished successfully!",
-  "results": {
-    "step1": { "status": "success", "message": "Prerequisites installed successfully" },
-    "step2": { "status": "success", "message": "GitHub repository created successfully" },
-    "step3": { "status": "success", "message": "GCP foundation project setup completed" },
-    "step4": { "status": "success", "message": "GitHub secrets configured successfully" }
-  },
-  "summary": {
-    "githubRepo": "https://github.com/yourusername/my-app",
-    "gcpProject": "my-app-fdn-1234567890",
-    "serviceAccount": "my-app-sa@my-app-fdn-1234567890.iam.gserviceaccount.com",
-    "secretsCreated": 4,
-    "variablesCreated": 2,
-    "workflowCreated": 1
-  }
-}
-```
-
-### Example 6: Setup GitHub Secrets
-
-**You ask in Cursor:**
-> "Configure GitHub secrets for my project with the GCP project details"
-
-**The MCP server will:**
-- Create GitHub repository secrets for sensitive data (service account, workload identity pool)
-- Create GitHub environment variables for non-sensitive data (project ID, region)
-- Add a GitHub Actions workflow for GCP authentication
-- Return a summary of what was created
-
-**Example response:**
-```json
-{
-  "status": "success",
-  "message": "GitHub secrets and environment variables setup completed",
-  "repoName": "my-app",
-  "results": [
-    { "name": "GCP_PROJECT_ID", "type": "secret", "status": "created" },
-    { "name": "GCP_SERVICE_ACCOUNT", "type": "secret", "status": "created" },
-    { "name": "GCP_WORKLOAD_IDENTITY_POOL", "type": "secret", "status": "created" },
-    { "name": "GCP_REGION", "type": "variable", "status": "created" }
-  ],
-  "summary": {
-    "secretsCreated": 3,
-    "variablesCreated": 1,
-    "workflowsCreated": 1,
-    "totalItems": 5
-  }
 }
 ```
 
