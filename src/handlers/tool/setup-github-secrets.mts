@@ -46,7 +46,7 @@ export async function setupGitHubSecrets(
         workloadIdentityPool: input.workloadIdentityProviders?.dev || '',
         projectNumber: input.projectNumber,
         workloadIdentityProviders: input.workloadIdentityProviders,
-        regions: input.region,
+        regions: input.regions,
         orgId: input.orgId,
         billingAccount: input.billingAccount,
         ownerEmails: input.ownerEmails,
