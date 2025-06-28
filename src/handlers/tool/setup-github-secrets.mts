@@ -1,222 +1,13 @@
-import { exec } from 'node:child_process'
+import type { FoundationSetupResult } from '../../lib/setup-foundation-project.mjs'
+import type { SetupGitHubSecretsResult, CompleteProjectSetupResult, DependencyCheckResult, CreateGitHubRepoResult } from '../../types.mjs'
+import { installPrerequisites } from './install-prerequisites.mjs'
+import { createGitHubRepo } from './create-github-repo.mjs'
+import { runFoundationProjectHandler } from './run-foundation-project-handler.mjs'
 import { promisify } from 'node:util'
-import type {
-  CompleteProjectSetupResult,
-  CreateGitHubRepoResult,
-  DependencyCheckResult,
-  InstallPrerequisitesResult,
-  SetupFoundationProjectArgs,
-  SetupFoundationProjectResult,
-  SetupGitHubSecretsResult,
-} from '../types.mjs'
-import { runFoundationProject, type FoundationSetupArgs, type FoundationSetupResult } from '../lib/setup_foundation_project.js'
+import { exec as execCb } from 'node:child_process'
+import { createGitHubEnvironments } from './create-github-environments.mjs'
 
-const execAsync = promisify(exec)
-
-export async function runFoundationProjectHandler(
-  args: SetupFoundationProjectArgs & { ownerEmails: string },
-): Promise<SetupFoundationProjectResult> {
-  try {
-    const foundationArgs: FoundationSetupArgs = {
-      projectName: args.projectName,
-      orgId: args.orgId,
-      billingAccount: args.billingAccount,
-      regions: args.regions,
-      githubIdentity: args.githubIdentity,
-      developerIdentity: args.developerIdentity,
-      ownerEmails: args.ownerEmails,
-    }
-    const result: FoundationSetupResult = await runFoundationProject(foundationArgs)
-    // Return a result matching SetupFoundationProjectResult
-    return {
-      projectId: result.projectId,
-      serviceAccount: result.serviceAccount,
-      workloadIdentityPool: result.workloadIdentityProviders?.dev || '',
-      projectNumber: result.projectNumber,
-      workloadIdentityProviders: result.workloadIdentityProviders,
-      status: 'success',
-      message: 'Foundation project setup completed successfully',
-    }
-  } catch (error) {
-    console.error('Foundation project setup failed:', error)
-    return {
-      projectId: '',
-      serviceAccount: '',
-      workloadIdentityPool: '',
-      projectNumber: '',
-      workloadIdentityProviders: {
-        dev: '',
-        test: '',
-        sbx: '',
-        prod: '',
-      },
-      status: 'failed',
-      message: `Foundation project setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    }
-  }
-}
-
-export async function installPrerequisites(args: {
-  checkOnly?: boolean
-  includeOptional?: boolean
-}): Promise<InstallPrerequisitesResult> {
-  const required = [
-    {
-      name: 'terraform',
-      check: 'terraform --version',
-      install: 'brew install terraform',
-    },
-    {
-      name: 'cdktf',
-      check: 'cdktf --version',
-      install: 'npm install -g cdktf-cli',
-    },
-    {
-      name: 'cdktf-cli',
-      check: 'cdktf --version',
-      install: 'npm install -g cdktf-cli',
-    },
-    {
-      name: 'gcloud',
-      check: 'gcloud --version',
-      install: 'brew install --cask google-cloud-sdk',
-    },
-    { name: 'gh', check: 'gh --version', install: 'brew install gh' },
-  ]
-  const optional = [
-    {
-      name: 'python',
-      check: 'python3 --version',
-      install: 'brew install python',
-    },
-    { name: 'rust', check: 'rustc --version', install: 'brew install rust' },
-  ]
-  const toCheck = args.includeOptional ? required.concat(optional) : required
-  const results = []
-  for (const dep of toCheck) {
-    try {
-      await execAsync(dep.check)
-      results.push({ name: dep.name, present: true })
-    } catch {
-      results.push({ name: dep.name, present: false })
-      if (!args.checkOnly) {
-        try {
-          await execAsync(dep.install)
-          results.push({ name: dep.name, installed: true })
-        } catch (err) {
-          results.push({
-            name: dep.name,
-            installed: false,
-            error: String(err),
-          })
-        }
-      }
-    }
-  }
-  return {
-    summary: results,
-    message: args.checkOnly
-      ? 'Dependency check complete.'
-      : 'Dependency check and install complete.',
-  }
-}
-
-export async function createGitHubRepo(args: {
-  repoName: string
-  description?: string
-  isPrivate?: boolean
-  addReadme?: boolean
-  addGitignore?: boolean
-  addLicense?: string
-  topics?: string[]
-}): Promise<CreateGitHubRepoResult> {
-  try {
-    // Check if GitHub CLI is available
-    try {
-      await execAsync('gh --version')
-    } catch {
-      return {
-        status: 'failed',
-        message:
-          'GitHub CLI (gh) is not installed. Please install it first: https://cli.github.com/',
-        error: 'GitHub CLI not found',
-      }
-    }
-
-    // Check if user is authenticated with GitHub
-    try {
-      await execAsync('gh auth status')
-    } catch {
-      return {
-        status: 'failed',
-        message: 'Not authenticated with GitHub. Please run: gh auth login',
-        error: 'GitHub authentication required',
-      }
-    }
-
-    // Build the gh repo create command
-    const cmd = [
-      'gh repo create',
-      args.repoName,
-      args.isPrivate !== false ? '--private' : '--public',
-      args.description ? `--description "${args.description}"` : '',
-      args.addReadme !== false ? '--add-readme' : '',
-      args.addGitignore !== false ? '--gitignore Node' : '',
-      args.addLicense ? `--license ${args.addLicense}` : '',
-      '--source .',
-      '--remote origin',
-      '--push',
-    ]
-      .filter(Boolean)
-      .join(' ')
-
-    console.error(`Creating GitHub repository: ${args.repoName}`)
-    const { stdout, stderr } = await execAsync(cmd, {
-        env: process.env,
-      maxBuffer: 1024 * 1024, // 1MB buffer
-      timeout: 60000, // 1 minute timeout
-    })
-
-      if (stderr) {
-      console.error('GitHub CLI stderr:', stderr)
-    }
-
-    console.error('GitHub CLI stdout:', stdout)
-
-    // Add topics if specified
-    if (args.topics && args.topics.length > 0) {
-      const topicsCmd = `gh repo edit ${args.repoName} --add-topic ${args.topics.join(',')}`
-      try {
-        await execAsync(topicsCmd)
-        console.error(`Added topics: ${args.topics.join(', ')}`)
-      } catch (error) {
-        console.error('Failed to add topics:', error)
-      }
-    }
-
-    // Extract repository URL from output
-    const repoUrlMatch = stdout.match(/https:\/\/github\.com\/[^\/]+\/[^\/\s]+/)
-    const repoUrl = repoUrlMatch
-      ? repoUrlMatch[0]
-      : `https://github.com/${args.repoName}`
-
-    return {
-      status: 'success',
-      message: 'GitHub repository created successfully',
-      repoName: args.repoName,
-      repoUrl: repoUrl,
-      isPrivate: args.isPrivate !== false,
-      topics: args.topics || [],
-    }
-  } catch (error) {
-    console.error('GitHub repository creation failed:', error)
-    return {
-      status: 'failed',
-      message: `GitHub repository creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
-  }
-}
+const execAsync = promisify(execCb)
 
 export async function setupGitHubSecrets(
   input: FoundationSetupResult | {
@@ -231,11 +22,10 @@ export async function setupGitHubSecrets(
       sbx?: string
       prod?: string
     }
-    region: string
+    regions: string
     orgId?: string
     billingAccount?: string
     ownerEmails?: string
-    regions?: string
   }
 ): Promise<SetupGitHubSecretsResult> {
   // Type guard: is this a FoundationSetupResult?
@@ -244,17 +34,18 @@ export async function setupGitHubSecrets(
 
   const args = isFoundationResult(input)
     ? {
-        repoName: input.projectId, // or use a different field if needed
+        repoName: input.githubIdentity && input.githubIdentity.includes('/')
+          ? input.githubIdentity
+          : `${input.githubIdentity}/${input.projectId.replace(/-fdn-.*/, '')}`,
         projectId: input.projectId,
         serviceAccount: input.serviceAccount,
         workloadIdentityPool: input.workloadIdentityProviders?.dev || '',
         projectNumber: input.projectNumber,
         workloadIdentityProviders: input.workloadIdentityProviders,
-        region: input.region,
+        regions: input.region,
         orgId: input.orgId,
         billingAccount: input.billingAccount,
         ownerEmails: input.ownerEmails,
-        regions: input.region, // or join regions if available
       }
     : input
 
@@ -400,7 +191,7 @@ export async function setupGitHubSecrets(
 
     // --- GCP_REGION as both secret and variable ---
     try {
-      const cmd = `gh secret set GCP_TOOLS_REGIONS --repo ${args.repoName} --body "${args.region}"`
+      const cmd = `gh secret set GCP_TOOLS_REGIONS --repo ${args.repoName} --body "${args.regions}"`
       await execAsync(cmd)
       results.push({
         name: 'GCP_TOOLS_REGIONS',
@@ -416,7 +207,7 @@ export async function setupGitHubSecrets(
       })
     }
     try {
-      const cmd = `gh variable set GCP_TOOLS_REGIONS --repo ${args.repoName} --body "${args.region}"`
+      const cmd = `gh variable set GCP_TOOLS_REGIONS --repo ${args.repoName} --body "${args.regions}"`
       await execAsync(cmd)
       results.push({
         name: 'GCP_TOOLS_REGIONS',
@@ -430,79 +221,6 @@ export async function setupGitHubSecrets(
         status: 'failed',
         error: String(error),
       })
-    }
-
-    // Create a GitHub Actions workflow file for GCP authentication
-    const workflowContent = `name: GCP Authentication Setup
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-
-env:
-  GCP_PROJECT_ID: \${{ vars.GCP_PROJECT_ID }}
-  GCP_REGION: \${{ vars.GCP_REGION }}
-
-jobs:
-  setup-gcp-auth:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Google Auth
-      id: auth
-      uses: google-github-actions/auth@v2
-      with:
-        workload_identity_provider: \${{ secrets.GCP_WORKLOAD_IDENTITY_POOL }}
-        service_account: \${{ secrets.GCP_SERVICE_ACCOUNT }}
-
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
-
-    - name: Configure gcloud
-      run: |
-        gcloud config set project \${{ vars.GCP_PROJECT_ID }}
-        gcloud config set compute/region \${{ vars.GCP_REGION }}
-
-    - name: Verify Authentication
-      run: |
-        gcloud auth list
-        gcloud config list
-`
-
-    try {
-      // Create .github/workflows directory if it doesn't exist
-      await execAsync('mkdir -p .github/workflows')
-
-      // Write the workflow file
-      const fs = await import('node:fs/promises')
-      await fs.writeFile('.github/workflows/gcp-auth.yml', workflowContent)
-
-      // Add and commit the workflow file
-      await execAsync('git add .github/workflows/gcp-auth.yml')
-      await execAsync('git commit -m "Add GCP authentication workflow"')
-      await execAsync('git push origin main')
-
-      results.push({
-        name: 'gcp-auth.yml',
-        type: 'workflow',
-        status: 'created',
-      })
-      console.error('Created GCP authentication workflow')
-    } catch (error) {
-      results.push({
-        name: 'gcp-auth.yml',
-        type: 'workflow',
-        status: 'failed',
-        error: String(error),
-      })
-      console.error('Failed to create workflow file:', error)
     }
 
     return {
@@ -517,9 +235,7 @@ jobs:
         variablesCreated: results.filter(
           (r) => r.type === 'variable' && r.status === 'created',
         ).length,
-        workflowsCreated: results.filter(
-          (r) => r.type === 'workflow' && r.status === 'created',
-        ).length,
+        workflowsCreated: 0,
         totalItems: results.length,
       },
     }
@@ -552,7 +268,6 @@ export async function completeProjectSetup(args: {
   repoDescription?: string
   isPrivate?: boolean
   addLicense?: string
-  topics?: string[]
   includeOptionalDeps?: boolean
 }): Promise<CompleteProjectSetupResult> {
   const results: CompleteProjectSetupResult['results'] = {
@@ -568,10 +283,7 @@ export async function completeProjectSetup(args: {
   try {
     // Step 1: Install prerequisites
     console.error('Step 1: Installing prerequisites...')
-    const prereqResult = await installPrerequisites({
-      checkOnly: false,
-      includeOptional: args.includeOptionalDeps || false,
-    })
+    const prereqResult = await installPrerequisites()
 
     if (
       (prereqResult.summary as DependencyCheckResult[])?.some(
@@ -646,13 +358,13 @@ export async function completeProjectSetup(args: {
     console.error('Step 2: Creating GitHub repository...')
     const repoResult = (await createGitHubRepo({
       repoName: args.projectName,
+      githubIdentity: args.githubIdentity,
       description:
         args.repoDescription || `GCP infrastructure for ${args.projectName}`,
       isPrivate: args.isPrivate !== false,
       addReadme: true,
       addGitignore: true,
       addLicense: args.addLicense,
-      topics: args.topics || ['gcp', 'cdktf', 'terraform', 'infrastructure'],
     })) as CreateGitHubRepoResult
 
     if (repoResult.status === 'failed') {
@@ -703,16 +415,58 @@ export async function completeProjectSetup(args: {
       details: foundationResult,
     }
 
+    // Step 3.5: Create GitHub environments before secrets
+    const repoFullName = args.githubIdentity && args.githubIdentity.includes('/')
+      ? args.githubIdentity
+      : `${args.githubIdentity}/${args.projectName}`
+    const envResult = await createGitHubEnvironments({ repoName: repoFullName })
+    if (envResult.status !== 'success') {
+      results.step4 = {
+        status: 'partial',
+        message: 'Some environments failed to create',
+        details: {
+          status: 'failed',
+          message: envResult.message,
+          repoName: repoFullName,
+          results: envResult.results.map(r => ({
+            name: 'GITHUB_ENVIRONMENT',
+            type: 'environment',
+            env: r.env,
+            status: r.status,
+            error: r.error,
+          })),
+          summary: {
+            secretsCreated: 0,
+            variablesCreated: 0,
+            workflowsCreated: 0,
+            totalItems: envResult.results.length,
+          },
+        },
+      }
+      return {
+        status: 'failed',
+        message: 'Some environments failed to create',
+        results,
+        summary: {
+          githubRepo: repoFullName,
+          gcpProject: foundationResult.projectId,
+          serviceAccount: foundationResult.serviceAccount,
+          secretsCreated: 0,
+          variablesCreated: 0,
+          workflowCreated: 0,
+        },
+      }
+    }
+
     // Step 4: Setup GitHub secrets
     console.error('Step 4: Setting up GitHub secrets...')
     const secretsResult = (await setupGitHubSecrets({
       ...foundationResult,
-      repoName: args.projectName,
-      region: args.regions,
+      repoName: repoFullName,
+      regions: args.regions,
       orgId: args.orgId,
       billingAccount: args.billingAccount,
       ownerEmails: args.ownerEmails,
-      regions: args.regions,
     })) as SetupGitHubSecretsResult
 
     if (secretsResult.status === 'failed') {

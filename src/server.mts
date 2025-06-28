@@ -6,14 +6,14 @@ import {
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { getResourceContent } from './handlers/resource-handlers.mjs'
+import { getResourceContent } from './handlers/resource/index.mjs'
 import {
   completeProjectSetup,
   createGitHubRepo,
   installPrerequisites,
   runFoundationProjectHandler,
   setupGitHubSecrets,
-} from './handlers/tool-handlers.mjs'
+} from './handlers/tool/index.mjs'
 import { resourceRegistry } from './resources/index.mjs'
 import { toolRegistry } from './tools/index.mjs'
 import type {
@@ -116,22 +116,19 @@ export class GcpToolsMCPServer {
             projectName: string
             orgId: string
             billingAccount: string
-            region: string
+            regions: string
             githubIdentity: string
             developerIdentity: string
+            ownerEmails: string
           },
         )
       case 'install_prerequisites':
-        return await installPrerequisites(
-          args as {
-            checkOnly?: boolean
-            includeOptional?: boolean
-          },
-        )
+        return await installPrerequisites()
       case 'create_github_repo':
         return await createGitHubRepo(
           args as {
             repoName: string
+            githubIdentity: string
             description?: string
             isPrivate?: boolean
             addReadme?: boolean
@@ -154,11 +151,10 @@ export class GcpToolsMCPServer {
               sbx?: string
               prod?: string
             }
-            region: string
+            regions: string
             orgId?: string
             billingAccount?: string
             ownerEmails?: string
-            regions?: string
           },
         )
       case 'complete_project_setup':
@@ -167,9 +163,10 @@ export class GcpToolsMCPServer {
             projectName: string
             orgId: string
             billingAccount: string
-            region: string
+            regions: string
             githubIdentity: string
             developerIdentity: string
+            ownerEmails: string
             repoDescription?: string
             isPrivate?: boolean
             addLicense?: string

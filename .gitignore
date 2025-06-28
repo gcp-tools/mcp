@@ -186,4 +186,5 @@ scripts/gcp_auth_access_token
 scripts/release
 
 chats
+_chats
 local-dev-wif.json

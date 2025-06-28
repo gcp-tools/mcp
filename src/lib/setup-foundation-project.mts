@@ -14,8 +14,8 @@ function getEnvOrArg(name: string, index: number): string {
 }
 
 function fail(msg: string, err?: unknown) {
-  console.error(`\n❌ ERROR: ${msg}`)
-  if (err) console.error(err)
+  console.error(`\n[error] ❌ ERROR: ${msg}`)
+  if (err) console.error('[error]', err)
   process.exit(1)
 }
 
@@ -71,30 +71,114 @@ export type FoundationSetupResult = {
   ownerEmails: string
 }
 
+// Helper to list all GCP projects
+async function listProjects(): Promise<string[]> {
+  try {
+    const { stdout } = await exec('gcloud projects list --format="value(projectId)"')
+    return stdout.split('\n').map((s) => s.trim()).filter(Boolean)
+  } catch (err) {
+    console.error('[error] Failed to list GCP projects:', err)
+    return []
+  }
+}
+
+// Helper to check if billing is already linked
+async function isBillingLinked(projectId: string, billingAccount: string): Promise<boolean> {
+  try {
+    const { stdout } = await exec(`gcloud beta billing projects describe ${projectId} --format="value(billingAccountName)"`)
+    return stdout.trim().endsWith(billingAccount)
+  } catch (err) {
+    console.error('[error] Failed to check billing linkage:', err)
+    return false
+  }
+}
+
+// Helper to check if a service account exists
+async function serviceAccountExists(projectId: string, email: string): Promise<boolean> {
+  try {
+    const { stdout } = await exec(`gcloud iam service-accounts list --project=${projectId} --format="value(email)"`)
+    return stdout.split('\n').map((s) => s.trim()).includes(email)
+  } catch {
+    return false
+  }
+}
+
+// Helper to check if a GCS bucket exists
+async function bucketExists(bucketName: string): Promise<boolean> {
+  try {
+    await exec(`gcloud storage buckets describe gs://${bucketName}`)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Helper to check if a Workload Identity Pool exists
+async function workloadIdentityPoolExists(projectId: string, poolId: string): Promise<boolean> {
+  try {
+    const { stdout } = await exec(
+      `gcloud iam workload-identity-pools describe ${poolId} --project=${projectId} --location=global --format="value(name)"`
+    )
+    return stdout.trim() !== ''
+  } catch {
+    return false
+  }
+}
+
+// Helper to check if a Workload Identity Provider exists
+async function workloadIdentityProviderExists(projectId: string, poolId: string, providerId: string): Promise<boolean> {
+  try {
+    const { stdout } = await exec(
+      `gcloud iam workload-identity-pools providers describe ${providerId} --project=${projectId} --workload-identity-pool=${poolId} --location=global --format="value(name)"`
+    )
+    return stdout.trim() !== ''
+  } catch {
+    return false
+  }
+}
+
 // Refactor main logic into an exported async function
 export async function runFoundationProject(args: FoundationSetupArgs): Promise<FoundationSetupResult> {
   const { projectName, orgId, billingAccount, regions, githubIdentity, developerIdentity, ownerEmails } = args
   const regionList = regions.split(',').map((r) => r.trim()).filter(Boolean)
   const defaultRegion = regionList[0]
   const timestamp = Math.floor(Date.now() / 1000)
-  const projectId = `${projectName}-fdn-${timestamp}`
+  let projectId = `${projectName}-fdn-${timestamp}`
   const serviceAccountName = `${projectName}-sa`
-  const serviceAccountEmail = `${serviceAccountName}@${projectId}.iam.gserviceaccount.com`
-  const bucketName = `${projectId}-terraform-state`
+  let serviceAccountEmail = ''
+  let bucketName = ''
 
-  // 2. Create GCP Project
-  console.log(`\n=== Step 1: Creating GCP Project: ${projectId} ===`)
-  await run(`gcloud projects create ${projectId} --name="${projectName}-fdn" --organization=${orgId} --set-as-default`, 'Create GCP Project')
+  // Check for existing project
+  const projects = await listProjects()
+  const projectRegex = new RegExp(`^${projectName}-fdn(-\\d+)?$`)
+  const existing = projects.find((id) => projectRegex.test(id))
+  if (existing) {
+    projectId = existing
+    serviceAccountEmail = `${serviceAccountName}@${projectId}.iam.gserviceaccount.com`
+    bucketName = `${projectId}-terraform-state`
+    console.error(`[info] Project ${projectId} already exists. Skipping creation.`)
+  } else {
+    // 2. Create GCP Project
+    console.error(`[info] === Step 1: Creating GCP Project: ${projectId} ===`)
+    await run(`gcloud projects create ${projectId} --name="${projectName}-fdn" --organization=${orgId} --set-as-default`, 'Create GCP Project')
+    serviceAccountEmail = `${serviceAccountName}@${projectId}.iam.gserviceaccount.com`
+    bucketName = `${projectId}-terraform-state`
+  }
 
   // 3. Link Billing
-  console.log(`\n=== Step 2: Linking Billing Account: ${billingAccount} ===`)
-  await run(`gcloud billing projects link ${projectId} --billing-account=${billingAccount}`, 'Link Billing')
+  const billingLinked = await isBillingLinked(projectId, billingAccount)
+  if (billingLinked) {
+    console.error(`[info] Billing account ${billingAccount} already linked to project ${projectId}. Skipping link step.`)
+  } else {
+    console.error(`[info] === Step 2: Linking Billing Account: ${billingAccount} ===`)
+    await run(`gcloud billing projects link ${projectId} --billing-account=${billingAccount}`, 'Link Billing')
+  }
 
   // 4. Get Project Number
   const projectNumber = await run(`gcloud projects describe ${projectId} --format="value(projectNumber)"`, 'Get Project Number')
 
   // 5. Enable APIs
-  console.log(`\n=== Step 3: Enabling Required APIs ===`)
+  console.error(`[info] === Step 3: Enabling Required APIs ===`)
   const apis = [
     'cloudresourcemanager.googleapis.com',
     'cloudbilling.googleapis.com',
@@ -108,11 +192,16 @@ export async function runFoundationProject(args: FoundationSetupArgs): Promise<F
   }
 
   // 6. Create Service Account
-  console.log(`\n=== Step 4: Creating Service Account: ${serviceAccountName} ===`)
-  await run(`gcloud iam service-accounts create ${serviceAccountName} --project=${projectId} --display-name="${serviceAccountName}"`, 'Create Service Account')
+  const saExists = await serviceAccountExists(projectId, serviceAccountEmail)
+  if (saExists) {
+    console.error(`[info] Service account ${serviceAccountEmail} already exists. Skipping creation.`)
+  } else {
+    console.error(`[info] === Step 4: Creating Service Account: ${serviceAccountName} ===`)
+    await run(`gcloud iam service-accounts create ${serviceAccountName} --project=${projectId} --display-name="${serviceAccountName}"`, 'Create Service Account')
+  }
 
   // 7. Assign IAM Roles (Project)
-  console.log(`\n=== Step 5: Assigning Project-Level IAM Roles ===`)
+  console.error(`[info] === Step 5: Assigning Project-Level IAM Roles ===`)
   const projectRoles = [
     'roles/viewer',
     'roles/iam.serviceAccountAdmin',
@@ -122,7 +211,7 @@ export async function runFoundationProject(args: FoundationSetupArgs): Promise<F
   }
 
   // 8. Assign IAM Roles (Org)
-  console.log(`\n=== Step 6: Assigning Organization-Level IAM Roles ===`)
+  console.error(`[info] === Step 6: Assigning Organization-Level IAM Roles ===`)
   const orgRoles = [
     'roles/resourcemanager.projectCreator',
     'roles/resourcemanager.projectDeleter',
@@ -150,7 +239,7 @@ export async function runFoundationProject(args: FoundationSetupArgs): Promise<F
   await run(`gcloud billing accounts add-iam-policy-binding ${billingAccount} --member="serviceAccount:${serviceAccountEmail}" --role="roles/billing.user"`, 'Assign Billing Role')
 
   // 9. Workload Identity Pools & Providers
-  console.log(`\n=== Step 7: Creating Workload Identity Pools and Providers ===`)
+  console.error(`[info] === Step 7: Creating Workload Identity Pools and Providers ===`)
   const pools = ['dev', 'test', 'sbx', 'prod']
   const poolIds = pools.map(env => `${projectName}-${env}-pool`)
   const githubProviderId = 'github-actions-provider'
@@ -172,15 +261,32 @@ export async function runFoundationProject(args: FoundationSetupArgs): Promise<F
   }
 
   for (const [i, poolId] of poolIds.entries()) {
-    await run(`gcloud iam workload-identity-pools create ${poolId} --project=${projectId} --location=global --display-name="${projectName}-${pools[i]}-pool" --description="Pool for ${projectName}-${pools[i]} environment"`, `Create Pool: ${poolId}`)
-    await run(`gcloud iam workload-identity-pools providers create-oidc ${githubProviderId} --project=${projectId} --workload-identity-pool=${poolId} --location=global --issuer-uri="https://token.actions.githubusercontent.com" --allowed-audiences="https://iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${githubProviderId}" --display-name="GitHub Actions Provider" --description="Provider for GitHub Actions" --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" --attribute-condition="${githubAttributeCondition()}"`, `Create GitHub Provider for Pool: ${poolId}`)
+    const poolExists = await workloadIdentityPoolExists(projectId, poolId)
+    if (poolExists) {
+      console.error(`[info] Workload Identity Pool ${poolId} already exists. Skipping creation.`)
+    } else {
+      await run(`gcloud iam workload-identity-pools create ${poolId} --project=${projectId} --location=global --display-name="${projectName}-${pools[i]}-pool" --description="Pool for ${projectName}-${pools[i]} environment"`, `Create Pool: ${poolId}`)
+    }
+    // Provider: GitHub Actions
+    const githubProviderExists = await workloadIdentityProviderExists(projectId, poolId, githubProviderId)
+    if (githubProviderExists) {
+      console.error(`[info] Workload Identity Provider ${githubProviderId} in pool ${poolId} already exists. Skipping creation.`)
+    } else {
+      await run(`gcloud iam workload-identity-pools providers create-oidc ${githubProviderId} --project=${projectId} --workload-identity-pool=${poolId} --location=global --issuer-uri="https://token.actions.githubusercontent.com" --allowed-audiences="https://iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${githubProviderId}" --display-name="GitHub Actions Provider" --description="Provider for GitHub Actions" --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" --attribute-condition="${githubAttributeCondition()}"`, `Create GitHub Provider for Pool: ${poolId}`)
+    }
+    // Provider: Local Developer (only for dev)
     if (pools[i] === 'dev') {
-      await run(`gcloud iam workload-identity-pools providers create-oidc ${localDevProviderId} --project=${projectId} --workload-identity-pool=${poolId} --location=global --issuer-uri="https://accounts.google.com" --allowed-audiences="https://iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${localDevProviderId}" --display-name="Local Developer Provider" --description="Provider for Local Developers" --attribute-mapping="google.subject=assertion.sub" --attribute-condition="true"`, `Create Local Developer Provider for Pool: ${poolId}`)
+      const localDevProviderExists = await workloadIdentityProviderExists(projectId, poolId, localDevProviderId)
+      if (localDevProviderExists) {
+        console.error(`[info] Workload Identity Provider ${localDevProviderId} in pool ${poolId} already exists. Skipping creation.`)
+      } else {
+        await run(`gcloud iam workload-identity-pools providers create-oidc ${localDevProviderId} --project=${projectId} --workload-identity-pool=${poolId} --location=global --issuer-uri="https://accounts.google.com" --allowed-audiences="https://iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${localDevProviderId}" --display-name="Local Developer Provider" --description="Provider for Local Developers" --attribute-mapping="google.subject=assertion.sub" --attribute-condition="true"`, `Create Local Developer Provider for Pool: ${poolId}`)
+      }
     }
   }
 
   // 10. Grant Impersonation Rights
-  console.log(`\n=== Step 8: Granting Impersonation Rights ===`)
+  console.error(`[info] === Step 8: Granting Impersonation Rights ===`)
   for (const [i, poolId] of poolIds.entries()) {
     const principal = `principalSet://iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/${githubPrincipalAttributePart()}`
     await run(`gcloud iam service-accounts add-iam-policy-binding ${serviceAccountEmail} --project=${projectId} --role="roles/iam.workloadIdentityUser" --member="${principal}"`, `Grant Impersonation for Pool: ${poolId}`)
@@ -191,8 +297,13 @@ export async function runFoundationProject(args: FoundationSetupArgs): Promise<F
   }
 
   // 11. Create GCS Bucket
-  console.log(`\n=== Step 9: Creating GCS Bucket: gs://${bucketName} in ${defaultRegion} ===`)
-  await run(`gcloud storage buckets create gs://${bucketName} --project=${projectId} --location=${defaultRegion}`, 'Create GCS Bucket')
+  const bucketAlreadyExists = await bucketExists(bucketName)
+  if (bucketAlreadyExists) {
+    console.error(`[info] GCS bucket gs://${bucketName} already exists. Skipping creation.`)
+  } else {
+    console.error(`[info] === Step 9: Creating GCS Bucket: gs://${bucketName} in ${defaultRegion} ===`)
+    await run(`gcloud storage buckets create gs://${bucketName} --project=${projectId} --location=${defaultRegion}`, 'Create GCS Bucket')
+  }
 
   // After all steps, collect workload identity providers
   const workloadIdentityProviders: Record<string, string> = {}
@@ -217,7 +328,7 @@ export async function runFoundationProject(args: FoundationSetupArgs): Promise<F
 }
 
 // CLI entrypoint
-if (require.main === module || (import.meta && import.meta.url && process.argv[1] === new URL(import.meta.url).pathname)) {
+if (import.meta.url && process.argv[1] === new URL(import.meta.url).pathname) {
   // 1. Gather raw inputs from env/args
   const rawInputs = {
     projectName: getEnvOrArg('GCP_TOOLS_PROJECT_NAME', 2),
@@ -247,7 +358,7 @@ if (require.main === module || (import.meta && import.meta.url && process.argv[1
     ownerEmails,
   })
     .then((result) => {
-      console.log(JSON.stringify(result, null, 2))
+      console.error(JSON.stringify(result, null, 2))
     })
     .catch((err) => fail('Unexpected error in setup script', err))
 }
