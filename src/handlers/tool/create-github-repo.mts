@@ -7,8 +7,13 @@ const execAsync = promisify(exec)
 // Helper to list all GitHub repos for the org/user
 async function listGitHubRepos(githubIdentity: string): Promise<string[]> {
   try {
-    const { stdout } = await execAsync(`gh repo list ${githubIdentity} --limit 200 --json name -q '.[].name'`)
-    return stdout.split('\n').map((s) => s.trim()).filter(Boolean)
+    const { stdout } = await execAsync(
+      `gh repo list ${githubIdentity} --limit 200 --json name -q '.[].name'`,
+    )
+    return stdout
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
   } catch (err) {
     console.error('[error] Failed to list GitHub repos:', err)
     return []
@@ -52,7 +57,9 @@ export async function createGitHubRepo(args: {
     // Check if repo already exists
     const repos = await listGitHubRepos(args.githubIdentity)
     if (repos.includes(args.repoName)) {
-      console.error(`[info] GitHub repo ${fullRepoName} already exists. Skipping creation.`)
+      console.error(
+        `[info] GitHub repo ${fullRepoName} already exists. Skipping creation.`,
+      )
       return {
         status: 'success',
         message: 'GitHub repository already exists. Skipped creation.',
@@ -69,12 +76,13 @@ export async function createGitHubRepo(args: {
     if (args.description) cmd += ` --description "${args.description}"`
     if (args.addReadme) cmd += ' --enable-issues --enable-wiki --add-readme'
     if (args.addGitignore) cmd += ' --gitignore Node'
-    if (args.addLicense && args.addLicense !== 'none') cmd += ` --license ${args.addLicense}`
+    if (args.addLicense && args.addLicense !== 'none')
+      cmd += ` --license ${args.addLicense}`
     cmd += ' --confirm'
 
     console.error(`Creating GitHub repository: ${fullRepoName}`)
     const { stdout, stderr } = await execAsync(cmd, {
-        env: process.env,
+      env: process.env,
       maxBuffer: 1024 * 1024, // 1MB buffer
       timeout: 60000, // 1 minute timeout
     })

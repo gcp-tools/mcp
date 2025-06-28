@@ -1,6 +1,6 @@
-import { getGcpToolsLibraryContent } from './get-gcp-tools-library-content.mjs'
 import { getExampleAppContent } from './get-example-app-content.mjs'
 import { getGcpProjectsContent } from './get-gcp-projects-content.mjs'
+import { getGcpToolsLibraryContent } from './get-gcp-tools-library-content.mjs'
 
 export async function getResourceContent(uri: string): Promise<string> {
   switch (uri) {

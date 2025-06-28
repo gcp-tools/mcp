@@ -1,4 +1,7 @@
 import { runFoundationProject } from '../../lib/setup-foundation-project.mjs'
+import type { SetupFoundationProjectResult } from '../../types.mts'
+
+export type RunFoundationProjectHandlerResult = SetupFoundationProjectResult
 
 export async function runFoundationProjectHandler(args: {
   projectName: string
@@ -8,7 +11,7 @@ export async function runFoundationProjectHandler(args: {
   githubIdentity: string
   developerIdentity: string
   ownerEmails: string
-}): Promise<any> {
+}): Promise<RunFoundationProjectHandlerResult> {
   try {
     // Call the TypeScript implementation directly
     const result = await runFoundationProject({
@@ -21,14 +24,18 @@ export async function runFoundationProjectHandler(args: {
       ownerEmails: args.ownerEmails,
     })
     return {
-      status: 'success',
       ...result,
+      workloadIdentityPool: '',
+      status: 'success',
+      message: 'GCP foundation project setup completed',
     }
   } catch (error) {
     return {
+      projectId: '',
+      serviceAccount: '',
+      workloadIdentityPool: '',
       status: 'failed',
       message: error instanceof Error ? error.message : String(error),
-      error: error instanceof Error ? error.message : String(error),
     }
   }
 }

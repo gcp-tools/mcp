@@ -1,13 +1,28 @@
-import { promisify } from 'node:util'
 import { exec as execCb } from 'node:child_process'
-import type { InstallPrerequisitesResult, DependencyCheckResult } from '../../types.mjs'
+import { promisify } from 'node:util'
+import type {
+  DependencyCheckResult,
+  InstallPrerequisitesResult,
+} from '../../types.mjs'
 
 const execAsync = promisify(execCb)
 
 const prerequisites = [
-  { name: 'terraform', check: 'terraform --version', install: 'npm install -g terraform' },
-  { name: 'cdktf-cli', check: 'cdktf --version', install: 'npm install -g cdktf-cli' },
-  { name: 'gcloud', check: 'gcloud --version', install: 'npm install -g google-cloud-sdk' },
+  {
+    name: 'terraform',
+    check: 'terraform --version',
+    install: 'npm install -g terraform',
+  },
+  {
+    name: 'cdktf-cli',
+    check: 'cdktf --version',
+    install: 'npm install -g cdktf-cli',
+  },
+  {
+    name: 'gcloud',
+    check: 'gcloud --version',
+    install: 'npm install -g google-cloud-sdk',
+  },
   { name: 'gh', check: 'gh --version', install: 'npm install -g gh' },
 ]
 
@@ -19,7 +34,6 @@ export async function installPrerequisites(): Promise<InstallPrerequisitesResult
       await execAsync(dep.check)
       console.error(`[info] ${dep.name} is already installed.`)
       summary.push({ name: dep.name, installed: true })
-      continue // Already installed, skip install
     } catch {
       // Not installed, try to install
       try {

@@ -141,7 +141,8 @@ export const tools: Tool[] = [
         },
         regions: {
           type: 'string',
-          description: 'Comma-separated list of regions (e.g., "us-central1,us-west1")',
+          description:
+            'Comma-separated list of regions (e.g., "us-central1,us-west1")',
           minLength: 1,
         },
         githubIdentity: {
