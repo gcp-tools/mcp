@@ -13,6 +13,7 @@ import {
   installPrerequisites,
   runFoundationProjectHandler,
   setupGitHubSecrets,
+  createSkeletonApp,
 } from './handlers/tool/index.mjs'
 import { resourceRegistry } from './resources/index.mjs'
 import { toolRegistry } from './tools/index.mjs'
@@ -108,6 +109,7 @@ export class GcpToolsMCPServer {
     | CreateGitHubRepoResult
     | SetupGitHubSecretsResult
     | CompleteProjectSetupResult
+    | ReturnType<typeof createSkeletonApp>
   > {
     switch (name) {
       case 'setup_foundation_project':
@@ -172,6 +174,15 @@ export class GcpToolsMCPServer {
             addLicense?: string
             topics?: string[]
             includeOptionalDeps?: boolean
+            codePath: string
+          },
+        )
+      case 'create_skeleton_app':
+        return await createSkeletonApp(
+          args as {
+            githubIdentity: string
+            projectName: string
+            codePath: string
           },
         )
       default:

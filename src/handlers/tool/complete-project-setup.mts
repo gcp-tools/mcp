@@ -11,6 +11,7 @@ import { createGitHubRepo } from './create-github-repo.mjs'
 import { installPrerequisites } from './install-prerequisites.mjs'
 import { runFoundationProjectHandler } from './run-foundation-project-handler.mjs'
 import { setupGitHubSecrets } from './setup-github-secrets.mjs'
+import { createSkeletonApp } from './create-skeleton-app.mjs'
 const execAsync = promisify(execCb)
 
 export async function completeProjectSetup(args: {
@@ -25,6 +26,7 @@ export async function completeProjectSetup(args: {
   isPrivate?: boolean
   addLicense?: string
   includeOptionalDeps?: boolean
+  codePath: string
 }): Promise<CompleteProjectSetupResult> {
   const results: CompleteProjectSetupResult['results'] = {
     step1: { status: 'pending', message: 'Installing prerequisites...' },
@@ -34,6 +36,7 @@ export async function completeProjectSetup(args: {
       message: 'Setting up GCP foundation project...',
     },
     step4: { status: 'pending', message: 'Configuring GitHub secrets...' },
+    step5: { status: 'pending', message: 'Creating skeleton app...' },
   }
 
   try {
@@ -248,6 +251,19 @@ export async function completeProjectSetup(args: {
       details: secretsResult,
     }
 
+    // Step 5: Create skeleton app
+    console.error('Step 5: Creating skeleton app...')
+    const skeletonResult = await createSkeletonApp({
+      githubIdentity: args.githubIdentity,
+      projectName: args.projectName,
+      codePath: args.codePath,
+    })
+    results.step5 = {
+      status: skeletonResult.status,
+      message: skeletonResult.message,
+      details: skeletonResult,
+    }
+
     // All steps completed successfully
     return {
       status: 'success',
@@ -260,6 +276,7 @@ export async function completeProjectSetup(args: {
         secretsCreated: secretsResult.summary?.secretsCreated || 0,
         variablesCreated: secretsResult.summary?.variablesCreated || 0,
         workflowCreated: secretsResult.summary?.workflowsCreated || 0,
+        skeletonAppPath: skeletonResult.path,
       },
     }
   } catch (error) {

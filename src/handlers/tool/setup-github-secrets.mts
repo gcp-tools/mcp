@@ -24,8 +24,11 @@ export async function setupGitHubSecrets(
         orgId?: string
         billingAccount?: string
         ownerEmails?: string
+        developerIdentity?: string
       },
 ): Promise<SetupGitHubSecretsResult> {
+  console.error('[DEBUG] setupGitHubSecrets input:', JSON.stringify(input, null, 2))
+
   // Type guard: is this a FoundationSetupResult?
   const isFoundationResult = (obj: unknown): obj is FoundationSetupResult => {
     if (!obj || typeof obj !== 'object') return false
@@ -50,6 +53,7 @@ export async function setupGitHubSecrets(
         orgId: input.orgId,
         billingAccount: input.billingAccount,
         ownerEmails: input.ownerEmails,
+        developerIdentity: input.developerIdentity,
       }
     : input
 
@@ -180,7 +184,7 @@ export async function setupGitHubSecrets(
     const variables = [
       {
         name: 'GCP_TOOLS_DEVELOPER_IDENTITY_SPECIFIER',
-        value: args.ownerEmails,
+        value: args.developerIdentity,
       },
       { name: 'GCP_TOOLS_GITHUB_IDENTITY_SPECIFIER', value: githubIdentity },
       { name: 'GCP_TOOLS_PROJECT_NAME', value: projectName },

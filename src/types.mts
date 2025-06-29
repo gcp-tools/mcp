@@ -130,6 +130,16 @@ export type CompleteProjectSetupResult = {
       message: string
       details?: SetupGitHubSecretsResult
     }
+    step5?: {
+      status: string
+      message: string
+      details?: {
+        status: string
+        message: string
+        path?: string
+        error?: string
+      }
+    }
   }
   summary?: {
     githubRepo?: string
@@ -138,6 +148,7 @@ export type CompleteProjectSetupResult = {
     secretsCreated?: number
     variablesCreated?: number
     workflowCreated?: number
+    skeletonAppPath?: string
   }
   error?: string
 }

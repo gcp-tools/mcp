@@ -194,6 +194,19 @@ export const tools: Tool[] = [
       ],
     },
   },
+  {
+    name: 'create_skeleton_app',
+    description: 'Clone and rebrand the gcp-tools/example-app repo as a new project, update references, set remote, and push.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        githubIdentity: { type: 'string', description: 'GitHub org/username' },
+        projectName: { type: 'string', description: 'Project name' },
+        codePath: { type: 'string', description: 'Path relative to home directory for the new app (required)' },
+      },
+      required: ['githubIdentity', 'projectName'],
+    },
+  },
 ]
 
 export const toolRegistry = new Map<string, Tool>()

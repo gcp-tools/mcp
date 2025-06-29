@@ -24,9 +24,6 @@ async function run(cmd: string, step: string): Promise<string> {
     const { stdout, stderr } = await exec(cmd)
     if (stderr) console.error(stderr)
     const result = stdout.trim()
-    if (!result) {
-      fail(`Step failed: ${step}\nCommand: ${cmd}\nNo output received`)
-    }
     return result
   } catch (err) {
     fail(`Step failed: ${step}\nCommand: ${cmd}`, err)
@@ -432,24 +429,26 @@ export async function runFoundationProject(
   const workloadIdentityProviders: Record<string, string> = {}
   for (const [i, poolId] of poolIds.entries()) {
     workloadIdentityProviders[pools[i]] =
-      `projects/${projectId}/locations/global/workloadIdentityPools/${poolId}/providers/${githubProviderId}`
+      `projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${githubProviderId}`
   }
 
   // Return structured result
-  return {
+  const result = {
     projectId,
     serviceAccount: serviceAccountEmail,
-    projectNumber: projectNumber,
+    projectNumber: String(projectNumber),
     workloadIdentityProviders,
     terraformStateBucket: bucketName,
     region: defaultRegion,
-    regions,
     orgId,
     billingAccount,
     githubIdentity,
     developerIdentity,
     ownerEmails,
+    regions,
   }
+  console.error('[DEBUG] runFoundationProject result:', JSON.stringify(result, null, 2))
+  return result
 }
 
 // CLI entrypoint
