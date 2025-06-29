@@ -78,7 +78,7 @@ export async function createSkeletonApp(args: {
     // Commit and push
     await exec('git add .', { cwd: targetPath })
     await exec(`git commit -m "chore: initialize skeleton app for ${githubIdentity}/${projectName}"`, { cwd: targetPath })
-    await exec('git push origin main', { cwd: targetPath })
+    await exec('git push origin main -f', { cwd: targetPath })
 
     return {
       status: 'success',

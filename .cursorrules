@@ -8,8 +8,7 @@ To use the GCP Tools MCP server in Cursor:
 3. Add a new MCP server with these settings:
    - Name: `gcp-tools-mcp`
    - Command: `node`
-   - Args: `dist/index.js`
-   - Working Directory: `/Users/si/code/gcp-tools-mcp`
+   - Args: `/Users/si/code/gcp-tools-mcp/dist/index.js`
 
 ## Available Tools
 - `setup_foundation_project`: Creates a new GCP foundation project

@@ -207,6 +207,21 @@ export const tools: Tool[] = [
       required: ['githubIdentity', 'projectName'],
     },
   },
+  {
+    name: 'poll_github_deployment',
+    description: 'Poll the status of a GitHub Actions workflow run for a given repo, workflow, and branch/ref until completion or timeout.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo: { type: 'string', description: 'GitHub repository (e.g., owner/repo)' },
+        workflow: { type: 'string', description: 'Workflow file name or ID (e.g., deploy.yml)' },
+        ref: { type: 'string', description: 'Branch or ref to filter on (optional)' },
+        interval: { type: 'number', description: 'Polling interval in seconds (default: 30)' },
+        timeout: { type: 'number', description: 'Timeout in seconds (default: 600)' },
+      },
+      required: ['repo', 'workflow'],
+    },
+  },
 ]
 
 export const toolRegistry = new Map<string, Tool>()

@@ -1,0 +1,35 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# GCP Tools MCP Server Configuration
+
+## MCP Server Setup
+To use the GCP Tools MCP server in Cursor:
+
+1. Go to Cursor Settings (Cmd/Ctrl + ,)
+2. Navigate to Extensions → Model Context Protocol
+3. Add a new MCP server with these settings:
+   - Name: `gcp-tools-mcp`
+   - Command: `node`
+   - Args: `/Users/si/code/gcp-tools-mcp/dist/index.js`
+
+## Available Tools
+- `setup_foundation_project`: Execute the setup_foundation_project.sh script in GCP
+- `install_prerequisites`: Check for and optionally install required (terraform, cdktf, cdktf-cli, gcloud, gh) and optional (python, rust) dependencies.
+- `create_github_repo`: Create a new GitHub repository with proper structure and configuration for GCP/CDKTF projects.
+- `setup_github_secrets`: Create GitHub repository secrets and environment variables based on GCP foundation project setup.
+- `complete_project_setup`: Complete end-to-end setup: install prerequisites, create GitHub repo, setup GCP foundation project, and configure GitHub secrets.
+- `create_skeleton_app`: Clone and rebrand the gcp-tools/example-app repo as a new project, update references, set remote, and push.
+- `poll_github_deployment`: Poll the status of a GitHub Actions workflow run for a given repo, workflow, and branch/ref until completion or timeout.
+
+## Available Resources
+- `gcp-tools-cdktf:library`: GCP Tools CDKTF Library documentation
+- `gcp-tools-cdktf:example-app`: Example application structure
+- `gcp:projects`: GCP project information
+
+## Usage Examples
+- "Set up a new GCP foundation project"
+- "Show me the gcp-tools-cdktf library structure"
+- "What's in the example application?"
